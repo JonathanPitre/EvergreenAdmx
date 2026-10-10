@@ -49,6 +49,7 @@ jobs:
             EvergreenAdmx.ps1
             README.md
             CHANGELOG.md
+            tests/EvergreenAdmx.Tests.ps1
           retention-days: 1
 
   publish-pr:

@@ -105,6 +105,31 @@ Describe 'Reviewed release catalog updates' {
         $updated | Should -Match "Feature = '26H2'"
     }
 
+    It 'updates a newer package ID for an existing edition without changing its default' {
+        Mock Get-WindowsReleaseCandidate { @{ PackageVersion = '3.0'; Published = [datetime]'2026-09-01' } }
+        Add-NewWindowsRelease $script:Catalog @(@{ Version = '11'; Feature = '25H2'; DownloadId = '199999'; Default = $true; PackageVersion = '4.0'; Published = [datetime]'2026-10-01' }) | Should -BeTrue
+        $edition = @($script:Catalog.Windows | Where-Object { $_.Version -eq '11' -and $_.Feature -eq '25H2' })[0]
+        $edition.DownloadId | Should -Be '199999'
+        $edition.Default | Should -BeFalse
+        @($script:Catalog.Windows | Where-Object { $_.Version -eq '11' -and $_.Default }).Feature | Should -Be '26H2'
+    }
+
+    It 'rejects an older package version even if its page has a newer publication date' {
+        Mock Get-WindowsReleaseCandidate { @{ PackageVersion = '3.0'; Published = [datetime]'2026-09-01' } }
+        Add-NewWindowsRelease $script:Catalog @(@{ Version = '11'; Feature = '25H2'; DownloadId = '108394'; PackageVersion = '1.0'; Published = [datetime]'2026-10-01' }) | Should -BeFalse
+        @($script:Catalog.Windows | Where-Object { $_.Version -eq '11' -and $_.Feature -eq '25H2' }).DownloadId | Should -Be '108542'
+    }
+
+    It 'updates only the matching Windows fixture when an approved download ID changes' {
+        $baseline = @($script:Catalog.Windows | ForEach-Object { $_.Clone() })
+        $edition = $script:Catalog.Windows | Where-Object { $_.Version -eq '11' -and $_.Feature -eq '25H2' }
+        $edition.DownloadId = '199999'
+        $fixture = "@{ WindowsVersion = 11; WindowsFeatureVersion = '25H2'; Expected = '108542' }`n@{ WindowsVersion = 11; WindowsFeatureVersion = '26H2'; Expected = '108847' }"
+        $updated = ConvertTo-UpdatedWindowsTestSource $fixture $baseline $script:Catalog
+        $updated | Should -Match "25H2'; Expected = '199999'"
+        $updated | Should -Match "26H2'; Expected = '108847'"
+    }
+
     It 'supports a newly reviewed client major and server year without new dispatch branches' {
         Add-NewWindowsRelease $script:Catalog @(
             @{ Version = '12'; Feature = '99H2'; DownloadId = '199998'; Default = $true }

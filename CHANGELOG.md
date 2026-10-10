@@ -38,6 +38,7 @@ and this project uses a `YYMM.patch` release versioning scheme.
 - Replaced Foxit's manually maintained candidate version list and failing HEAD probes with release-history discovery and ranged GET checks for both Reader and Editor templates
 - Removed stale ABBYY attachment URL fallbacks; missing or mismatched templates now fail clearly, and filenames follow the reviewed major
 - Read Windows package versions from structured Download Center metadata, including single-component versions, before storing a valid version record
+- Discover replacement Windows download IDs for existing editions using publication/version metadata, without downgrading packages or changing older edition defaults
 - Explicitly load both ZIP compression assemblies for Lenovo extraction and fixtures so Windows PowerShell 5.1 can resolve the archive types
 - Fixed all products being skipped when `-Include` contains multiple entries or uses defaults: the resolver returned a nested array that the script's `[string[]]` variable converted to one space-separated string ([#89](https://github.com/msfreaks/EvergreenAdmx/issues/89)); this also caused [nightly run 37200731000](https://github.com/JonathanPitre/EvergreenAdmx/actions/runs/37200731000) to produce zero ADMX files
 - Preserved the PowerShell 7 publishing fix for the unavailable legacy NuGet provider feed ([#87](https://github.com/msfreaks/EvergreenAdmx/issues/87)); PowerShellGet 2.2.5 remains the supported publishing dependency

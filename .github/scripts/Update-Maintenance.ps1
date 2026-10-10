@@ -37,12 +37,13 @@ if ($Kind -ne 'families') {
         . ([scriptblock]::Create($function.Extent.Text))
     }
     $catalog = Get-EvergreenAdmxReleaseCatalog
+    $baseline = @($catalog.Windows | ForEach-Object { $_.Clone() })
     $index = (Invoke-WebRequest -Uri 'https://learn.microsoft.com/en-us/troubleshoot/windows-client/group-policy/create-and-manage-central-store' -UseBasicParsing -TimeoutSec 30).Content
-    $before = @($catalog.Windows | ForEach-Object { "$($_.Version)/$($_.Feature)" })
+    $before = @($catalog.Windows | ForEach-Object { "$($_.Version)/$($_.Feature)/$($_.DownloadId)" })
     if (Add-NewWindowsRelease $catalog @(Get-WindowsReleaseCandidate $index)) {
         . ([scriptblock]::Create((ConvertTo-ReleaseCatalogFunction $catalog)))
         foreach ($release in $catalog.Windows) {
-            if ("$($release.Version)/$($release.Feature)" -notin $before) {
+            if ("$($release.Version)/$($release.Feature)/$($release.DownloadId)" -notin $before) {
                 Test-WindowsPolicyPackage $release
                 $changes.Add("Windows $($release.Version) $($release.Feature): download $($release.DownloadId)")
             }
@@ -65,6 +66,8 @@ if ($Kind -ne 'families') {
     }
     if ($changes.Count) {
         $newSource = ConvertTo-UpdatedReleaseCatalogSource $source $catalog
+        $testPath = Join-Path $root 'tests/EvergreenAdmx.Tests.ps1'
+        $testSource = ConvertTo-UpdatedWindowsTestSource ([IO.File]::ReadAllText($testPath)) $baseline $catalog
         $readmePath = Join-Path $root 'README.md'
         $readme = [IO.File]::ReadAllText($readmePath)
         if ($readme -notmatch '(?s)<!-- release-catalog:start -->.*?<!-- release-catalog:end -->') { throw 'README release catalog markers not found.' }
@@ -79,8 +82,9 @@ if ($Kind -ne 'families') {
             [IO.File]::WriteAllText($scriptPath, $newSource)
             [IO.File]::WriteAllText($readmePath, $readme)
             [IO.File]::WriteAllText($changelogPath, $changelog)
+            [IO.File]::WriteAllText($testPath, $testSource)
         }
-        $files = @('EvergreenAdmx.ps1', 'README.md', 'CHANGELOG.md')
+        $files = @('EvergreenAdmx.ps1', 'README.md', 'CHANGELOG.md', 'tests/EvergreenAdmx.Tests.ps1')
     }
 }
 $changes | Write-Output

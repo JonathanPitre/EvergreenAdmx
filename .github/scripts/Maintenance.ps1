@@ -14,7 +14,7 @@ function Get-MaintenanceFileList {
     $allowed = switch ($Kind) {
         'routine' { @('.github/powershell-dependencies.psd1') }
         'major' { @('.github/powershell-dependencies.psd1') }
-        'families' { @('EvergreenAdmx.ps1', 'README.md', 'CHANGELOG.md') }
+        'families' { @('EvergreenAdmx.ps1', 'README.md', 'CHANGELOG.md', 'tests/EvergreenAdmx.Tests.ps1') }
         default { throw 'Unknown maintenance update kind.' }
     }
     if ($Files.Count -ne $allowed.Count -or @($allowed | Where-Object { $_ -notin $Files }).Count) {
@@ -67,7 +67,9 @@ function Get-WindowsReleaseCandidate {
         if ($file.Count -ne 1) { throw "Microsoft ADMX download $id does not contain exactly one official MSI." }
         if ($file[0].version -notmatch '^\d+(?:\.\d+){0,3}$') { throw "Microsoft download $id has an invalid package version." }
         $null = [datetime]::Parse($file[0].datePublished, [cultureinfo]'en-US')
-        @{ Version = $version; Feature = $feature; DownloadId = $id; Default = $true }
+        $packageVersion = [string]$file[0].version
+        if ($packageVersion -notmatch '\.') { $packageVersion += '.0' }
+        @{ Version = $version; Feature = $feature; DownloadId = $id; Default = $true; PackageVersion = $packageVersion; Published = [datetime]::Parse($file[0].datePublished, [cultureinfo]'en-US') }
     }
 }
 
@@ -77,7 +79,16 @@ function Add-NewWindowsRelease {
     foreach ($candidate in ($Candidates | Sort-Object { [int]$_.Version }, Feature)) {
         $family = @($Catalog.Windows | Where-Object Version -eq $candidate.Version)
         if ($family) {
-            if (@($family | Where-Object Feature -eq $candidate.Feature).Count) { continue }
+            $existing = @($family | Where-Object Feature -eq $candidate.Feature)
+            if ($existing.Count) {
+                if ($candidate.DownloadId -eq $existing[0].DownloadId -or -not $candidate.Published) { continue }
+                $approved = @(Get-WindowsReleaseCandidate "https://www.microsoft.com/download/details.aspx?id=$($existing[0].DownloadId)")
+                if ($approved.Count -ne 1) { throw 'Cannot compare the reviewed Windows package metadata.' }
+                if ([version]$candidate.PackageVersion -lt [version]$approved[0].PackageVersion -or $candidate.Published -le $approved[0].Published) { continue }
+                $existing[0].DownloadId = $candidate.DownloadId
+                $changed = $true
+                continue
+            }
             $latest = ($family.Feature | Sort-Object -Descending | Select-Object -First 1)
             if ($candidate.Feature -le $latest) { continue } # Never reintroduce historical releases.
         } else {
@@ -169,4 +180,16 @@ function Get-ReleaseCatalogMarkdown {
     }
     $lines += @('', "ABBYY FineReader approved major: **$($Catalog.ABBYYMajor)**. Foxit approved annual family: **$($Catalog.FoxitMajor)**.", '', '<!-- release-catalog:end -->')
     return $lines -join "`n"
+}
+
+function ConvertTo-UpdatedWindowsTestSource {
+    param([string]$Source, [object[]]$Baseline, [hashtable]$Catalog)
+    foreach ($old in $Baseline) {
+        $release = $Catalog.Windows | Where-Object { $_.Version -eq $old.Version -and $_.Feature -eq $old.Feature } | Select-Object -First 1
+        if ($release.DownloadId -eq $old.DownloadId) { continue }
+        $pattern = '(WindowsVersion\s*=\s*' + [regex]::Escape($old.Version) + ';\s*WindowsFeatureVersion\s*=\s*''' + [regex]::Escape($old.Feature) + ''';\s*Expected\s*=\s*'')' + [regex]::Escape($old.DownloadId) + '('')'
+        $replacement = '${1}' + $release.DownloadId + '${2}'
+        $Source = [regex]::Replace($Source, $pattern, $replacement)
+    }
+    return $Source
 }
