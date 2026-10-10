@@ -12,7 +12,7 @@ function Invoke-GitHubCLI {
 }
 
 $result = Get-Content (Join-Path $ArtifactPath 'maintenance-result.json') -Raw | ConvertFrom-Json
-if (-not $result.changes.Count) { Write-Host 'No updates available.'; return }
+if (-not $result.changes.Count) { Write-Output 'No updates available.'; return }
 $allowed = @(Get-MaintenanceFileList -Kind $result.kind -Files $result.files)
 $repository = $env:GITHUB_REPOSITORY
 $defaultBranch = Invoke-GitHubCLI @('api', "repos/$repository", '--jq', '.default_branch')

@@ -88,7 +88,7 @@ Describe 'Reviewed release catalog updates' {
 
     It 'does not downgrade an existing download or restore historical editions' {
         $before = $script:Catalog | ConvertTo-Json -Depth 5
-        Add-NewWindowsReleases $script:Catalog @(
+        Add-NewWindowsRelease $script:Catalog @(
             @{ Version = '11'; Feature = '25H2'; DownloadId = '108394'; Default = $true }
             @{ Version = '11'; Feature = '22H2'; DownloadId = '100001'; Default = $true }
             @{ Version = '10'; Feature = '20H2'; DownloadId = '100002'; Default = $true }
@@ -97,20 +97,20 @@ Describe 'Reviewed release catalog updates' {
     }
 
     It 'adds a future edition and retains explicit older selectors' {
-        Add-NewWindowsReleases $script:Catalog @(@{ Version = '11'; Feature = '99H2'; DownloadId = '199999'; Default = $true }) | Should -BeTrue
+        Add-NewWindowsRelease $script:Catalog @(@{ Version = '11'; Feature = '99H2'; DownloadId = '199999'; Default = $true }) | Should -BeTrue
         @($script:Catalog.Windows | Where-Object { $_.Version -eq '11' -and $_.Default }).Feature | Should -Be '99H2'
         @($script:Catalog.Windows | Where-Object { $_.Version -eq '11' -and $_.Feature -eq '26H2' }).DownloadId | Should -Be '108847'
-        $updated = Set-ReleaseCatalogSource $script:Source $script:Catalog
+        $updated = ConvertTo-UpdatedReleaseCatalogSource $script:Source $script:Catalog
         $updated | Should -Match "Feature = '99H2'"
         $updated | Should -Match "Feature = '26H2'"
     }
 
     It 'supports a newly reviewed client major and server year without new dispatch branches' {
-        Add-NewWindowsReleases $script:Catalog @(
+        Add-NewWindowsRelease $script:Catalog @(
             @{ Version = '12'; Feature = '99H2'; DownloadId = '199998'; Default = $true }
             @{ Version = '2099'; Feature = ''; DownloadId = '199997'; Default = $true }
         ) | Should -BeTrue
-        $updated = Set-ReleaseCatalogSource $script:Source $script:Catalog
+        $updated = ConvertTo-UpdatedReleaseCatalogSource $script:Source $script:Catalog
         $updated | Should -Match '\$WindowsVersion = ''12'''
         $updated | Should -Match '\$WindowsVersion -lt 2000'
         $catalog = $script:Catalog
@@ -127,7 +127,7 @@ Describe 'Reviewed release catalog updates' {
 
     It 'rejects source injection through downloaded catalog data' {
         $script:Catalog.Windows[0].DownloadId = "1'; Write-Host injected"
-        { Set-ReleaseCatalogSource $script:Source $script:Catalog } | Should -Throw '*Invalid Windows release data*'
+        { ConvertTo-UpdatedReleaseCatalogSource $script:Source $script:Catalog } | Should -Throw '*Invalid Windows release data*'
     }
 
     It 'generates documentation for every reviewed family' {
@@ -153,7 +153,7 @@ Describe 'Microsoft release discovery' {
             $json = @{ dlcDetailsView = @{ downloadTitle = 'Administrative Templates for Windows 11 (99H2) Insider Preview' } } | ConvertTo-Json -Depth 5 -Compress
             @{ Content = "<script>window.__DLCDetails__=$json</script>" }
         }
-        @(Get-WindowsReleaseCandidates '<a href="https://www.microsoft.com/download/details.aspx?id=199999">ADMX</a>').Count | Should -Be 0
+        @(Get-WindowsReleaseCandidate '<a href="https://www.microsoft.com/download/details.aspx?id=199999">ADMX</a>').Count | Should -Be 0
     }
 
     It 'accepts an official ADMX MSI and ignores duplicate links' {
@@ -165,7 +165,7 @@ Describe 'Microsoft release discovery' {
             @{ Content = "<script>window.__DLCDetails__=$json</script>" }
         }
         $index = '<a href="https://www.microsoft.com/en-us/download/details.aspx?id=199999">ADMX</a>'
-        $releases = @(Get-WindowsReleaseCandidates "$index$index")
+        $releases = @(Get-WindowsReleaseCandidate "$index$index")
         $releases.Count | Should -Be 1
         $releases[0].Feature | Should -Be '99H2'
         $releases[0].DownloadId | Should -Be '199999'
@@ -179,11 +179,11 @@ Describe 'Microsoft release discovery' {
             } } | ConvertTo-Json -Depth 5 -Compress
             @{ Content = "<script>window.__DLCDetails__=$json</script>" }
         }
-        { Get-WindowsReleaseCandidates '<a href="https://www.microsoft.com/en-us/download/details.aspx?id=199999">ADMX</a>' } | Should -Throw '*official MSI*'
+        { Get-WindowsReleaseCandidate '<a href="https://www.microsoft.com/en-us/download/details.aspx?id=199999">ADMX</a>' } | Should -Throw '*official MSI*'
     }
 
     It 'fails visibly when the index no longer exposes packages' {
-        { Get-WindowsReleaseCandidates '<html>changed</html>' } | Should -Throw '*no Download Center links*'
+        { Get-WindowsReleaseCandidate '<html>changed</html>' } | Should -Throw '*no Download Center links*'
     }
 }
 
@@ -280,5 +280,11 @@ Describe 'Foxit package discovery' {
     It 'rejects a CDN error page even when its status is successful' {
         Mock Invoke-WebRequest { @{ StatusCode = 200; Content = '<html>access denied</html>' } } -ParameterFilter { $Method -eq 'Get' }
         { Get-EvergreenAdmxFoxit } | Should -Throw '*Unable to locate*'
+    }
+
+    It 'keeps unreviewed annual families out of runtime downloads while discovery can inspect them' {
+        Mock Invoke-WebRequest { @{ Content = 'Version 2099.1.0.12345 Version 2026.1.0.36452' } } -ParameterFilter { $Uri -like 'https://www.foxit.com/*' }
+        (Get-EvergreenAdmxFoxit).Version | Should -Be '2026.1.0'
+        (Get-EvergreenAdmxFoxit -MaximumMajor ([int]::MaxValue)).Version | Should -Be '2099.1.0'
     }
 }

@@ -224,6 +224,7 @@ function Get-EvergreenAdmxReleaseCatalog {
     # Embedded because Install-Script distributes EvergreenAdmx.ps1 alone.
     return @{
         ABBYYMajor = 16
+        FoxitMajor = 2026
         Windows = @(
             @{ Version = '10'; Feature = '21H2'; DownloadId = '104042'; Default = $false }
             @{ Version = '10'; Feature = '22H2'; DownloadId = '104677'; Default = $true }
@@ -3651,10 +3652,12 @@ function Get-EvergreenAdmxFoxit {
         Returns latest Version and Uri for Foxit PDF Reader/Editor ADMX files
     #>
 
+    param([int]$MaximumMajor = (Get-EvergreenAdmxReleaseCatalog).FoxitMajor)
+
     try {
         $history = (Invoke-WebRequest -UseDefaultCredentials -Uri 'https://www.foxit.com/pdf-editor/version-history/' -UseBasicParsing -TimeoutSec 30 -ErrorAction Stop).Content
         $candidates = @([regex]::Matches($history, '(?i)Version\s*(?:<[^>]+>\s*)*(?<version>\d{4}\.\d+\.\d+)(?:\.\d+)?') |
-            ForEach-Object { [version]$_.Groups['version'].Value } | Sort-Object -Unique -Descending)
+            ForEach-Object { [version]$_.Groups['version'].Value } | Where-Object Major -le $MaximumMajor | Sort-Object -Unique -Descending)
         if (-not $candidates) { throw 'Foxit release history contains no recognizable versions.' }
 
         $latest = $null

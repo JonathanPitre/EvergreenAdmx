@@ -374,7 +374,7 @@ Patch/minor dependency PRs merge automatically only after Markdownlint and the W
 
 The same weekly workflow discovers newer Windows families from Microsoft's [Central Store index](https://learn.microsoft.com/en-us/troubleshoot/windows-client/group-policy/create-and-manage-central-store) and ABBYY majors from its [help index](https://help.abbyy.com/en-us/). It validates new Windows packages through the existing extraction flow and checks ABBYY XML/resources before proposing catalog/default changes with updated documentation and CI. Microsoft can publish a package before listing it in the index, so detection can lag publication. Existing download IDs and historical supported selectors are retained. Product family data stays embedded in the standalone Gallery script.
 
-Foxit resolves candidate versions from its release history and selects the newest available Reader/Editor template pair. ABBYY resolves fresh attachment links within its approved major. Vendor markup or package format changes can still require a code fix; discovery failures appear in workflow logs.
+Foxit resolves candidate versions from its release history and selects the newest available Reader/Editor template pair within its approved annual families. A newer annual family is proposed through the reviewed catalog PR, after both ZIPs are verified. ABBYY resolves fresh attachment links within its approved major. Products using continuous vendor feeds keep their existing evergreen behavior. Vendor markup or package format changes can still require a code fix; discovery failures appear in workflow logs.
 
 Repository settings require the three CI checks on `main`, block force pushes and deletion, enable Dependabot security updates and secret scanning with push protection, and default workflow tokens to read-only. GitHub's combined **Allow GitHub Actions to create and approve pull requests** setting stays enabled so the updater can open PRs; these workflows never submit approvals. Only maintenance PR publication and metadata-only Dependabot auto-merge receive write permissions. The latter never checks out PR code.
 
@@ -395,7 +395,7 @@ Scheduled automation and Dependabot configuration become active after this chang
 | 2022 | None | [104003](https://www.microsoft.com/en-us/download/details.aspx?id=104003) | Yes |
 | 2025 | None | [108430](https://www.microsoft.com/en-us/download/details.aspx?id=108430) | Yes |
 
-ABBYY FineReader approved major: **16**.
+ABBYY FineReader approved major: **16**. Foxit approved annual family: **2026**.
 
 <!-- release-catalog:end -->
 

@@ -47,7 +47,7 @@ function Test-WindowsPolicyPackage {
     }
 }
 
-function Get-WindowsReleaseCandidates {
+function Get-WindowsReleaseCandidate {
     param([string]$Content)
     $ids = @([regex]::Matches($Content, 'https://www\.microsoft\.com/(?:[^"''<>\s]+/)?download/details\.aspx\?id=(?<id>\d+)') |
         ForEach-Object { $_.Groups['id'].Value } | Select-Object -Unique)
@@ -71,7 +71,7 @@ function Get-WindowsReleaseCandidates {
     }
 }
 
-function Add-NewWindowsReleases {
+function Add-NewWindowsRelease {
     param([hashtable]$Catalog, [object[]]$Candidates)
     $changed = $false
     foreach ($candidate in ($Candidates | Sort-Object { [int]$_.Version }, Feature)) {
@@ -126,11 +126,13 @@ function ConvertTo-ReleaseCatalogFunction {
         "            @{ Version = '$($release.Version)'; Feature = '$($release.Feature)'; DownloadId = '$($release.DownloadId)'; Default = $default }"
     }
     $major = [int]$Catalog.ABBYYMajor
+    $foxitMajor = [int]$Catalog.FoxitMajor
     return @"
 function Get-EvergreenAdmxReleaseCatalog {
     # Embedded because Install-Script distributes EvergreenAdmx.ps1 alone.
     return @{
         ABBYYMajor = $major
+        FoxitMajor = $foxitMajor
         Windows = @(
 $($rows -join "`n")
         )
@@ -139,7 +141,7 @@ $($rows -join "`n")
 "@
 }
 
-function Set-ReleaseCatalogSource {
+function ConvertTo-UpdatedReleaseCatalogSource {
     param([string]$Source, [hashtable]$Catalog)
     $tokens = $null
     $errors = $null
@@ -165,6 +167,6 @@ function Get-ReleaseCatalogMarkdown {
         $feature = if ($release.Feature) { $release.Feature } else { 'None' }
         $lines += "| $($release.Version) | $feature | [$($release.DownloadId)](https://www.microsoft.com/en-us/download/details.aspx?id=$($release.DownloadId)) | $default |"
     }
-    $lines += @('', "ABBYY FineReader approved major: **$($Catalog.ABBYYMajor)**.", '', '<!-- release-catalog:end -->')
+    $lines += @('', "ABBYY FineReader approved major: **$($Catalog.ABBYYMajor)**. Foxit approved annual family: **$($Catalog.FoxitMajor)**.", '', '<!-- release-catalog:end -->')
     return $lines -join "`n"
 }

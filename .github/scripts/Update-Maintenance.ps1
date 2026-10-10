@@ -39,7 +39,7 @@ if ($Kind -ne 'families') {
     $catalog = Get-EvergreenAdmxReleaseCatalog
     $index = (Invoke-WebRequest -Uri 'https://learn.microsoft.com/en-us/troubleshoot/windows-client/group-policy/create-and-manage-central-store' -UseBasicParsing -TimeoutSec 30).Content
     $before = @($catalog.Windows | ForEach-Object { "$($_.Version)/$($_.Feature)" })
-    if (Add-NewWindowsReleases $catalog @(Get-WindowsReleaseCandidates $index)) {
+    if (Add-NewWindowsRelease $catalog @(Get-WindowsReleaseCandidate $index)) {
         . ([scriptblock]::Create((ConvertTo-ReleaseCatalogFunction $catalog)))
         foreach ($release in $catalog.Windows) {
             if ("$($release.Version)/$($release.Feature)" -notin $before) {
@@ -57,12 +57,18 @@ if ($Kind -ne 'families') {
         Test-ABBYYPolicyPair (Get-EvergreenAdmxABBYYFineReader)
         $changes.Add("ABBYY FineReader approved major -> $major")
     }
+    $foxit = Get-EvergreenAdmxFoxit -MaximumMajor ([int]::MaxValue)
+    $foxitMajor = ([version]$foxit.Version).Major
+    if ($foxitMajor -gt $catalog.FoxitMajor) {
+        $catalog.FoxitMajor = $foxitMajor
+        $changes.Add("Foxit approved annual family -> $foxitMajor (Reader/Editor templates $($foxit.Version))")
+    }
     if ($changes.Count) {
-        $newSource = Set-ReleaseCatalogSource $source $catalog
+        $newSource = ConvertTo-UpdatedReleaseCatalogSource $source $catalog
         $readmePath = Join-Path $root 'README.md'
         $readme = [IO.File]::ReadAllText($readmePath)
         if ($readme -notmatch '(?s)<!-- release-catalog:start -->.*?<!-- release-catalog:end -->') { throw 'README release catalog markers not found.' }
-        $readme = [regex]::Replace($readme, '(?s)<!-- release-catalog:start -->.*?<!-- release-catalog:end -->', [System.Text.RegularExpressions.MatchEvaluator]{ param($match) Get-ReleaseCatalogMarkdown $catalog })
+        $readme = [regex]::Replace($readme, '(?s)<!-- release-catalog:start -->.*?<!-- release-catalog:end -->', [System.Text.RegularExpressions.MatchEvaluator]{ Get-ReleaseCatalogMarkdown $catalog })
         $changelogPath = Join-Path $root 'CHANGELOG.md'
         $changelog = [IO.File]::ReadAllText($changelogPath)
         $heading = [regex]::Match($changelog, '(?m)^### Added\r?\n')
@@ -77,7 +83,7 @@ if ($Kind -ne 'families') {
         $files = @('EvergreenAdmx.ps1', 'README.md', 'CHANGELOG.md')
     }
 }
-$changes | ForEach-Object { Write-Host $_ }
+$changes | Write-Output
 if ($DryRun) { return }
 $result = @{ kind = $Kind; changes = @($changes); files = $files }
 [IO.File]::WriteAllText((Join-Path $root 'maintenance-result.json'), ($result | ConvertTo-Json -Depth 5))

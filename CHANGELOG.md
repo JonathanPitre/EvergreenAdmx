@@ -11,7 +11,7 @@ and this project uses a `YYMM.patch` release versioning scheme.
 
 - Added weekly Dependabot updates for SHA-pinned GitHub Actions and a scheduled PowerShell Gallery updater with one dependency manifest shared by all workflows
 - Added automatic patch/minor dependency merges gated by Markdownlint and both PowerShell unit jobs; major updates and discovered product families require human review
-- Added automatic discovery of newer Windows families and ABBYY FineReader majors, proposing catalog/default changes and documentation in tested PRs; Microsoft index publication lag is documented
+- Added automatic discovery of newer Windows families, ABBYY FineReader majors, and Foxit annual families, proposing catalog/default changes and documentation in tested PRs; Microsoft index publication lag is documented
 - Added Pester coverage for dependency classification, future Windows families, source validation, Microsoft/ABBYY discovery, and Foxit template package selection
 - Added opt-in Lenovo Commercial Vantage ADMX support: dynamically discovers the current Enterprise deployment ZIP, extracts policy files only, and detects same-version package rebuilds using the stored download URL ([#84](https://github.com/msfreaks/EvergreenAdmx/issues/84))
 - Added Lenovo Pester coverage for metadata discovery, aliases, explicit inclusion, selective extraction, language fallback, policy store copying, revision stamping, version/rebuild checks, and failure cleanup; nightly checks verify its templates and version record
