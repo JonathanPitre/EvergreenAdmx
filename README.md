@@ -143,7 +143,7 @@ Download Lenovo Commercial Vantage policy templates:
 .\EvergreenAdmx.ps1 -Include 'Lenovo Commercial Vantage' -Languages en-US -UseProductFolders
 ```
 
-Commercial Vantage requires explicit `-Include` (`LenovoCommercialVantage` and `CommercialVantage` are aliases). It discovers the current Enterprise deployment ZIP from Lenovo Support, downloads the full package (currently about 630 MiB), and extracts only `CommercialVantage.admx` and its language files. Subsequent runs skip unchanged packages; rebuilt ZIPs refresh even when the application version stays the same. If Lenovo's metadata is unavailable or changes format, the script reports an error instead of falling back to an old package.
+Requires explicit `-Include` and downloads about 630 MiB to extract the policy templates. Unchanged packages are skipped.
 
 Weekly SYSTEM task for the Central Store (exits after registration):
 
@@ -202,9 +202,9 @@ Skips Admx downloads and only runs the Policy Store cleanup described above. Req
 
 ### -CreateScheduledTask
 
-Creates or updates a Windows Scheduled Task named `EvergreenAdmx` that runs this script weekly (Sunday at 01:00) as `SYSTEM` with highest privileges. Compatible with Windows Server 2022 and 2025 via `Register-ScheduledTask`.
+Creates or updates the `EvergreenAdmx` task to run every Sunday at 01:00 as `SYSTEM` with highest privileges. Supports Windows Server 2022 and 2025 through `Register-ScheduledTask`.
 
-Other parameters bound on the same command line are forwarded to the task action. The script exits after registering the task and does not download Admx files in that run. Change day/time later in Task Scheduler.
+Passes your other command-line parameters to the task and exits without downloading templates. Change the schedule in Task Scheduler.
 
 ### -CustomPolicyStore
 
@@ -278,7 +278,7 @@ Shared defaults: `Microsoft Edge`, `Microsoft OneDrive`, `Microsoft 365 Apps`, `
 - [`Snagit`][ref-snagit] (community template for Snagit 2025 / 2026; en-US)
 - [`Specops Authentication Client`][ref-specops] (on-prem + Entra ID)
 - [`TeamViewer`][ref-teamviewer]
-- Windows client and Server families in the [reviewed release catalog](#reviewed-release-catalog), using names such as `Windows 11` and `Windows 2025`
+- Windows client and Server templates, such as `Windows 11` and `Windows 2025` (see [supported releases](#reviewed-release-catalog))
 - [`Windows Terminal`][ref-windows-terminal]
 - [`Winget-AutoUpdate`][ref-wau]
 - [`Winget-AutoUpdate-Intune`][ref-wau-intune]
@@ -302,15 +302,9 @@ Microsoft OneDrive Admx files are only available after installing OneDrive. If t
 
 ### -StampAdmxRevision
 
-When set, stamps ADMX/ADML `revision` attributes from the product release Version (GitHub release, download page, etc.) normalized to the ADMX `versionString` **Major.Minor** form (for example `143.0.3624.0` becomes `143.0`). This helps Intune Imported Administrative Templates show a meaningful Version column.
+Sets ADMX/ADML revisions from the product release version so Intune's Version column reflects that release. Uses `Major.Minor`, for example `143.0.3624.0` becomes `143.0`.
 
-Only attributes currently set to `1.0` are updated:
-
-- ADMX `policyDefinitions/@revision`
-- ADMX `resources/@minRequiredRevision` (when also `1.0`)
-- ADML `policyDefinitionResources/@revision`
-
-Higher vendor revisions are left unchanged. Default is off so Central Policy Store copies keep vendor XML unless you opt in.
+Updates only `1.0` values in ADMX/ADML `revision` and ADMX `resources/@minRequiredRevision`. Higher vendor revisions are kept. Off by default, so Central Policy Store copies retain vendor XML unless you opt in.
 
 ### -UseProductFolders
 
@@ -368,23 +362,16 @@ Highlights in **2607.0** (full history and earlier breaking changes in the [Chan
 
 ## Maintenance automation
 
-Dependabot checks SHA-pinned GitHub Actions every Monday. PowerShell has no native Dependabot ecosystem, so the scheduled `maintenance.yml` workflow queries the PowerShell Gallery and updates [.github/powershell-dependencies.psd1](.github/powershell-dependencies.psd1). CI, release smoke, nightly tests, and Gallery publication all consume that manifest; exact versions keep runs reproducible. GitHub maintains the tools supplied by its runner images.
+Weekly automation checks GitHub Actions, PowerShell dependencies, and new Windows, ABBYY, and Foxit releases. Patch and minor dependency updates merge after lint and PowerShell 5.1/7 tests pass. Major updates and new product families require review before adoption.
 
-Patch/minor dependency PRs merge automatically only after Markdownlint and the Windows PowerShell 5.1 and PowerShell 7 unit jobs pass. Major dependency updates stay open for human review. Automation explicitly dispatches CI for its proposed commit, uses no extra bot token, and refuses to overwrite maintenance branches containing human commits.
+Discovery can lag vendor publication, and vendor website or package changes may still need a code fix.
 
-Maintenance uses one Windows discovery runner, queries each Gallery dependency once, and starts Ubuntu publisher jobs only for categories with updates. Unchanged maintenance PRs retain their commits and CI results; a changed proposal or base commit triggers a refresh. A vendor discovery failure does not prevent successful dependency proposals from being published.
+See the [maintainer notes](tests/README.md#maintenance-automation) for workflow details, repository setup, dry runs, and local validation.
 
-Real PowerShell Gallery uploads require the reusable release smoke tests to pass against the same commit. Manual publishing dry runs skip downloads and uploads. The full product download check runs weekly, while normal CI uses cached modules and tests both PowerShell versions in parallel.
+<a id="reviewed-release-catalog"></a>
 
-The same weekly workflow discovers newer Windows families from Microsoft's [Central Store index](https://learn.microsoft.com/en-us/troubleshoot/windows-client/group-policy/create-and-manage-central-store) and ABBYY majors from its [help index](https://help.abbyy.com/en-us/). It validates new Windows packages through the existing extraction flow and checks ABBYY XML/resources before proposing catalog/default changes with updated documentation and CI. New Windows download IDs for an existing edition are proposed only when publication metadata is newer and the package version does not regress; older selectors and their defaults are retained. Microsoft can publish a package before listing it in the index, so detection can lag publication. Product family data stays embedded in the standalone Gallery script.
-
-Foxit resolves candidate versions from its release history and selects the newest available Reader/Editor template pair within its approved annual families. A newer annual family is proposed through the reviewed catalog PR, after both ZIPs are verified. ABBYY resolves fresh attachment links within its approved major. Products using continuous vendor feeds keep their existing evergreen behavior. Vendor markup or package format changes can still require a code fix; discovery failures appear in workflow logs.
-
-Repository settings require the three CI checks on `main`, block force pushes and deletion, enable Dependabot security updates and secret scanning with push protection, and default workflow tokens to read-only. GitHub's combined **Allow GitHub Actions to create and approve pull requests** setting stays enabled so the updater can open PRs; these workflows never submit approvals. Only maintenance PR publication and metadata-only Dependabot auto-merge receive write permissions. The latter never checks out PR code.
-
-Scheduled automation and Dependabot configuration become active after this change merges into the default branch. Maintainers can use **Actions → Dependency and product discovery → Run workflow** with `dry_run` enabled to inspect candidates without opening PRs. See [tests/README.md](tests/README.md) for local validation.
-
-### Reviewed release catalog
+<details>
+<summary>Supported Windows releases and product families</summary>
 
 <!-- release-catalog:start -->
 
@@ -402,6 +389,8 @@ Scheduled automation and Dependabot configuration become active after this chang
 ABBYY FineReader approved major: **16**. Foxit approved annual family: **2026**.
 
 <!-- release-catalog:end -->
+
+</details>
 
 <a id="roadmap"></a>
 
