@@ -68,7 +68,7 @@ Install-PSResource EvergreenAdmx -Reinstall
 
 ## ⚡ Quick start
 
-Defaults (the latest reviewed Windows client templates plus Edge, OneDrive, 365 Apps, Clipchamp, Notepad, Winget, and Windows Terminal) into the current folder:
+Defaults (Windows 11 26H2 plus Edge, OneDrive, 365 Apps, Clipchamp, Notepad, Winget, and Windows Terminal) into the current folder:
 
 ```powershell
 .\EvergreenAdmx.ps1

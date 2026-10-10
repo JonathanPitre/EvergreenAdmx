@@ -21,6 +21,7 @@ and this project uses a `YYMM.patch` release versioning scheme.
 
 ### Changed
 
+- Clarified the README quick-start defaults as Windows 11 26H2
 - Centralized reviewed Windows release mappings and ABBYY major selection inside the standalone script; Windows validation, product aliases, defaults, and dispatch consume that catalog
 - Removed duplicated module version pins from workflows and local testing instructions; the maintenance publisher uses scoped write permissions and dispatches CI for the exact proposed commit
 - Enabled required CI checks and force-push/deletion protection on `main`, Dependabot security updates, secret scanning with push protection, read-only default workflow tokens, auto-merge, and merged-branch cleanup on the maintained fork
