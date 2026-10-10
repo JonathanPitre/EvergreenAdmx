@@ -38,6 +38,17 @@ git checkout -b $branch
 if ($LASTEXITCODE -ne 0) { throw 'Cannot create maintenance branch.' }
 git add -- $allowed
 if ($LASTEXITCODE -ne 0) { throw 'Cannot stage maintenance changes.' }
+$null = Invoke-GitHubCLI @('auth', 'setup-git')
+if ($lease) {
+    git fetch --no-tags --depth=2 origin $branch
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect the existing maintenance branch.' }
+    $existingHead = git rev-parse FETCH_HEAD
+    if ($LASTEXITCODE -ne 0 -or $existingHead -ne $lease) { throw 'Maintenance branch changed concurrently; refresh refused.' }
+    if (Test-MaintenanceProposalUnchanged $existingHead) {
+        Write-Output 'Maintenance PR and baseline are unchanged; keeping its commit and CI results.'
+        return
+    }
+}
 git config user.name 'github-actions[bot]'
 git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
 $title = switch ($result.kind) {
@@ -47,7 +58,6 @@ $title = switch ($result.kind) {
 }
 git commit -m $title
 if ($LASTEXITCODE -ne 0) { throw 'Cannot commit maintenance changes.' }
-$null = Invoke-GitHubCLI @('auth', 'setup-git')
 git push "--force-with-lease=refs/heads/${branch}:$lease" origin "HEAD:refs/heads/$branch"
 if ($LASTEXITCODE -ne 0) { throw 'Maintenance branch changed concurrently; push refused.' }
 $body = @"

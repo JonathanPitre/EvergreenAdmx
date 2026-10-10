@@ -53,6 +53,131 @@ Describe 'Maintenance publication boundaries' {
     }
 }
 
+Describe 'Unchanged maintenance proposals' {
+    BeforeEach {
+        $folder = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        $null = New-Item $folder -ItemType Directory
+        Push-Location $folder
+        git init -q -b main
+        git config user.name 'Maintenance test'
+        git config user.email 'maintenance@example.invalid'
+        'baseline' | Set-Content dependency.txt
+        git add .
+        git -c commit.gpgsign=false commit -q -m baseline
+        git checkout -q -b automation/major
+        'update' | Set-Content dependency.txt
+        git add .
+        git -c commit.gpgsign=false commit -q -m proposal
+        $script:ExistingHead = git rev-parse HEAD
+        git checkout -q main
+        'update' | Set-Content dependency.txt
+        git add .
+    }
+    AfterEach { Pop-Location }
+
+    It 'keeps an identical proposal on the same baseline' {
+        Test-MaintenanceProposalUnchanged $script:ExistingHead | Should -BeTrue
+    }
+    It 'refreshes a proposal when its files change' {
+        'newer update' | Set-Content dependency.txt
+        git add .
+        Test-MaintenanceProposalUnchanged $script:ExistingHead | Should -BeFalse
+    }
+    It 'refreshes a proposal when main advances' {
+        git reset -q --hard HEAD
+        'unrelated change' | Set-Content readme.txt
+        git add .
+        git -c commit.gpgsign=false commit -q -m advance
+        'update' | Set-Content dependency.txt
+        git add .
+        Test-MaintenanceProposalUnchanged $script:ExistingHead | Should -BeFalse
+    }
+}
+
+Describe 'Maintenance discovery orchestration' -Skip:($PSVersionTable.PSVersion -lt [version]'7.4') {
+    BeforeEach {
+        $script:PreviousRunnerTemp = $env:RUNNER_TEMP
+        $script:PreviousOutput = $env:GITHUB_OUTPUT
+        $env:RUNNER_TEMP = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+        $null = New-Item $env:RUNNER_TEMP -ItemType Directory
+        $env:GITHUB_OUTPUT = Join-Path $env:RUNNER_TEMP 'outputs.txt'
+        $script:DiscoveryRepo = Join-Path $env:RUNNER_TEMP 'repo'
+        $scripts = Join-Path $script:DiscoveryRepo '.github/scripts'
+        $null = New-Item $scripts -ItemType Directory -Force
+        foreach ($file in @('Discover-Maintenance.ps1', 'Maintenance.ps1')) {
+            Copy-Item (Join-Path $PSScriptRoot "../.github/scripts/$file") $scripts
+        }
+        @'
+param([string]$Kind, [switch]$DryRun, [hashtable]$DependencyCache)
+$manifest = Join-Path $PSScriptRoot '../powershell-dependencies.psd1'
+if ((Get-Content $manifest -Raw).Trim() -ne 'baseline') { throw 'Discovery baseline was contaminated.' }
+$case = Get-Content (Join-Path $env:RUNNER_TEMP 'case.txt') -Raw
+if ($case.Trim() -eq 'failure' -and $Kind -eq 'families') { throw 'Vendor unavailable.' }
+$changes = @()
+$files = @()
+if ($case.Trim() -ne 'empty' -and $Kind -ne 'families') {
+    "updated $Kind" | Set-Content $manifest
+    $changes = @("$Kind update")
+    $files = @('.github/powershell-dependencies.psd1')
+}
+if (-not $DryRun) {
+    @{ kind = $Kind; changes = $changes; files = $files } | ConvertTo-Json | Set-Content (Join-Path $PSScriptRoot '../../maintenance-result.json')
+}
+'@ | Set-Content (Join-Path $scripts 'Update-Maintenance.ps1')
+        'baseline' | Set-Content (Join-Path $script:DiscoveryRepo '.github/powershell-dependencies.psd1')
+        Push-Location $script:DiscoveryRepo
+        git init -q -b main
+        git config user.name 'Maintenance test'
+        git config user.email 'maintenance@example.invalid'
+        git add .
+        git -c commit.gpgsign=false commit -q -m baseline
+    }
+    AfterEach {
+        Pop-Location
+        $env:RUNNER_TEMP = $script:PreviousRunnerTemp
+        $env:GITHUB_OUTPUT = $script:PreviousOutput
+    }
+
+    It 'skips every publisher and artifact when nothing changes' {
+        'empty' | Set-Content (Join-Path $env:RUNNER_TEMP 'case.txt')
+        & ./.github/scripts/Discover-Maintenance.ps1
+        Get-Content $env:GITHUB_OUTPUT | Should -Contain 'changed=false'
+        Test-Path (Join-Path $env:RUNNER_TEMP 'maintenance-proposals') | Should -BeFalse
+    }
+    It 'packages only changed categories from separate clean baselines' {
+        'changes' | Set-Content (Join-Path $env:RUNNER_TEMP 'case.txt')
+        & ./.github/scripts/Discover-Maintenance.ps1
+        $matrix = (Get-Content $env:GITHUB_OUTPUT | Where-Object { $_ -like 'matrix=*' }).Substring(7) | ConvertFrom-Json
+        $matrix.kind | Should -Be @('routine', 'major')
+        foreach ($kind in $matrix.kind) {
+            (Get-Content (Join-Path $env:RUNNER_TEMP "maintenance-proposals/$kind/.github/powershell-dependencies.psd1") -Raw).Trim() | Should -Be "updated $kind"
+        }
+        (Get-Content .github/powershell-dependencies.psd1 -Raw).Trim() | Should -Be 'baseline'
+    }
+    It 'preserves dependency proposals when vendor discovery fails' {
+        'failure' | Set-Content (Join-Path $env:RUNNER_TEMP 'case.txt')
+        { & ./.github/scripts/Discover-Maintenance.ps1 -WarningAction SilentlyContinue } | Should -Throw '*Vendor unavailable*'
+        Get-Content $env:GITHUB_OUTPUT | Should -Contain 'changed=true'
+        $matrix = (Get-Content $env:GITHUB_OUTPUT | Where-Object { $_ -like 'matrix=*' }).Substring(7) | ConvertFrom-Json
+        $matrix.kind | Should -Be @('routine', 'major')
+    }
+    It 'keeps dry runs free of proposal artifacts' {
+        'changes' | Set-Content (Join-Path $env:RUNNER_TEMP 'case.txt')
+        & ./.github/scripts/Discover-Maintenance.ps1 -DryRun
+        Get-Content $env:GITHUB_OUTPUT | Should -Contain 'changed=false'
+        Test-Path (Join-Path $env:RUNNER_TEMP 'maintenance-proposals') | Should -BeFalse
+    }
+    It 'queries each dependency once across routine and major discovery' {
+        Mock Find-PSResource { [pscustomobject]@{ Version = [version]'999.0.0'; Prerelease = $false } }
+        $cache = @{}
+        $updater = Join-Path $PSScriptRoot '../.github/scripts/Update-Maintenance.ps1'
+        & $updater -Kind routine -DryRun -DependencyCache $cache
+        & $updater -Kind major -DryRun -DependencyCache $cache
+        $dependencies = Import-PowerShellDataFile (Join-Path $PSScriptRoot '../.github/powershell-dependencies.psd1')
+        Should -Invoke Find-PSResource -Times $dependencies.Count -Exactly
+    }
+}
+
 Describe 'New Windows package validation' {
     BeforeEach {
         $script:PreviousTemp = $env:TEMP

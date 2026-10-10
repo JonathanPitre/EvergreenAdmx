@@ -1,15 +1,14 @@
 name: Release smoke
 
 on:
-  release:
-    types: [published]
+  workflow_call:
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.release.tag_name || github.ref }}
+  group: release-smoke-${{ github.event.release.tag_name || github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -21,7 +20,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.release.tag_name || github.sha }}
+          ref: ${{ github.sha }}
           persist-credentials: false
 
       - name: Load dependency versions

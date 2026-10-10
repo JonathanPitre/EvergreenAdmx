@@ -2,7 +2,8 @@
 [CmdletBinding()]
 param(
     [ValidateSet('routine', 'major', 'families')][string]$Kind,
-    [switch]$DryRun
+    [switch]$DryRun,
+    [hashtable]$DependencyCache = @{}
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Maintenance.ps1')
@@ -13,7 +14,10 @@ if ($Kind -ne 'families') {
     $manifest = Join-Path $root '.github/powershell-dependencies.psd1'
     $dependencies = Import-PowerShellDataFile $manifest
     foreach ($name in ($dependencies.Keys | Sort-Object)) {
-        $latest = Find-PSResource -Name $name -Repository PSGallery -ErrorAction Stop
+        if (-not $DependencyCache.ContainsKey($name)) {
+            $DependencyCache[$name] = Find-PSResource -Name $name -Repository PSGallery -ErrorAction Stop
+        }
+        $latest = $DependencyCache[$name]
         if (-not $latest -or $latest.Prerelease) { throw "No stable Gallery release found for $name." }
         $version = $latest.Version.ToString()
         if ((Get-DependencyUpdateKind $dependencies[$name] $version) -eq $Kind) {

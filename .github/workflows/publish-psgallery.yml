@@ -27,7 +27,13 @@ defaults:
     shell: pwsh
 
 jobs:
+  smoke:
+    if: github.event_name != 'workflow_dispatch' || !inputs.dry_run
+    uses: ./.github/workflows/release-smoke.yml
+
   publish:
+    needs: smoke
+    if: ${{ !cancelled() && (needs.smoke.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.dry_run && needs.smoke.result == 'skipped')) }}
     name: Publish-Script
     runs-on: windows-2025
     timeout-minutes: 10
@@ -35,8 +41,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # Release events check out the default branch; pin to the release tag when present.
-          ref: ${{ github.event.release.tag_name || github.sha }}
+          # Use the same event commit as the smoke gate, even if a release tag moves.
+          ref: ${{ github.sha }}
           persist-credentials: false
 
       - name: Load dependency versions

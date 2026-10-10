@@ -23,6 +23,19 @@ function Get-MaintenanceFileList {
     return $allowed
 }
 
+function Test-MaintenanceProposalUnchanged {
+    param([string]$ExistingHead)
+    $existingParent = git show -s --format=%P $ExistingHead
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect the maintenance baseline.' }
+    $existingTree = git rev-parse "$ExistingHead^{tree}"
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect the existing proposal.' }
+    $proposedTree = git write-tree
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect the proposed changes.' }
+    $baseline = git rev-parse HEAD
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect the current baseline.' }
+    return $existingParent -eq $baseline -and $existingTree -eq $proposedTree
+}
+
 function Test-WindowsPolicyPackage {
     param([hashtable]$Release)
     $WorkingDirectory = Join-Path $env:TEMP "EvergreenAdmx-Discovery-$([guid]::NewGuid().ToString('N'))"

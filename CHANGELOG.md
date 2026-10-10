@@ -21,6 +21,8 @@ and this project uses a `YYMM.patch` release versioning scheme.
 
 ### Changed
 
+- Reduced maintenance to one discovery runner and publisher jobs only for categories with changes; unchanged PRs retain their commits and CI results
+- Required reusable release smoke tests to pass against the same commit before real PowerShell Gallery uploads; publishing dry runs remain lightweight
 - Clarified the README quick-start defaults as Windows 11 26H2
 - Centralized reviewed Windows release mappings and ABBYY major selection inside the standalone script; Windows validation, product aliases, defaults, and dispatch consume that catalog
 - Removed duplicated module version pins from workflows and local testing instructions; the maintenance publisher uses scoped write permissions and dispatches CI for the exact proposed commit
