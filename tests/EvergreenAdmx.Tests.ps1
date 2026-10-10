@@ -75,6 +75,7 @@ Describe 'Get-WindowsDownloadId' {
         @{ WindowsVersion = 11; WindowsFeatureVersion = '23H2'; Expected = '105667' }
         @{ WindowsVersion = 11; WindowsFeatureVersion = '24H2'; Expected = '106254' }
         @{ WindowsVersion = 11; WindowsFeatureVersion = '25H2'; Expected = '108542' }
+        @{ WindowsVersion = 11; WindowsFeatureVersion = '26H2'; Expected = '108847' }
         @{ WindowsVersion = 2022; WindowsFeatureVersion = '25H2'; Expected = '104003' }
         @{ WindowsVersion = 2025; WindowsFeatureVersion = '25H2'; Expected = '108430' }
     ) {
@@ -91,6 +92,21 @@ Describe 'Get-WindowsDownloadId' {
     It 'rejects Windows 11 with 22H2' {
         { Get-WindowsDownloadId -WindowsVersion 11 -WindowsFeatureVersion '22H2' } |
             Should -Throw -ExpectedMessage '*Invalid Windows Feature Version*'
+    }
+
+    It 'defaults to the Windows 11 26H2 download' {
+        Get-WindowsDownloadId | Should -Be '108847'
+    }
+
+    It 'selects the correct default feature version for Windows <WindowsVersion>' -ForEach @(
+        @{ WindowsVersion = '10'; Expected = '22H2' }
+        @{ WindowsVersion = '11'; Expected = '26H2' }
+    ) {
+        $tokens = $null
+        $errors = $null
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile($script:ScriptPath, [ref]$tokens, [ref]$errors)
+        $parameter = $ast.ParamBlock.Parameters | Where-Object { $_.Name.VariablePath.UserPath -eq 'WindowsFeatureVersion' }
+        & ([scriptblock]::Create($parameter.DefaultValue.Extent.Text)) | Should -Be $Expected
     }
 }
 
@@ -161,6 +177,7 @@ Describe 'Include product catalog' {
         $script:Products | Should -Contain 'HP Anyware'
         $script:Products | Should -Contain 'Custom Policy Store'
         $script:Products | Should -Contain 'Schannel'
+        $script:Products | Should -Contain 'Snagit'
     }
 
     It 'includes all Windows SKUs' {
@@ -191,6 +208,41 @@ Describe 'Include product catalog' {
 }
 
 Describe 'Resolve-EvergreenAdmxInclude' {
+    It 'preserves individual names at the typed script call site for <Scenario>' -ForEach @(
+        @{ Scenario = 'one product'; Requested = @('Edge'); Expected = @('Microsoft Edge') }
+        @{ Scenario = 'multiple products'; Requested = @('Edge', 'Chrome'); Expected = @('Microsoft Edge', 'Google Chrome') }
+        @{ Scenario = 'aliases and duplicates'; Requested = @('Edge', 'Microsoft Edge', 'Chrome'); Expected = @('Microsoft Edge', 'Google Chrome') }
+    ) {
+        [string[]]$include = @(Resolve-EvergreenAdmxInclude -Include $Requested)
+        $include.Count | Should -Be $Expected.Count
+        foreach ($product in $Expected) {
+            ($include -contains $product) | Should -BeTrue
+        }
+    }
+
+    It 'preserves every default product at the typed script call site' {
+        $tokens = $null
+        $errors = $null
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile($script:ScriptPath, [ref]$tokens, [ref]$errors)
+        $default = ($ast.ParamBlock.Parameters | Where-Object { $_.Name.VariablePath.UserPath -eq 'Include' }).DefaultValue
+        $WindowsVersion = '11'
+        $requested = @(& ([scriptblock]::Create($default.Extent.Text)))
+        [string[]]$include = @(Resolve-EvergreenAdmxInclude -Include $requested)
+        $include.Count | Should -Be $requested.Count
+        foreach ($product in $requested) {
+            ($include -contains $product) | Should -BeTrue
+        }
+    }
+
+    It 'preserves every nightly product at the typed script call site' {
+        $requested = @(Get-EvergreenAdmxIncludeValidateSet | Where-Object { $_ -notin @('Custom Policy Store', 'Windows 10') })
+        [string[]]$include = @(Resolve-EvergreenAdmxInclude -Include $requested)
+        $include.Count | Should -Be $requested.Count
+        foreach ($product in $requested) {
+            ($include -contains $product) | Should -BeTrue
+        }
+    }
+
     It 'resolves ProductKey aliases to canonical names' {
         $resolved = Resolve-EvergreenAdmxInclude -Include @('BISF', 'Edge', 'Chrome', 'AVD', 'FSLogix')
         $resolved | Should -Be @('BIS-F', 'Microsoft Edge', 'Google Chrome', 'Microsoft AVD', 'Microsoft FSLogix')
@@ -226,6 +278,92 @@ Describe 'Resolve-EvergreenAdmxInclude' {
         $err = { Resolve-EvergreenAdmxInclude -Include @('Adobe Acrobat Classic 2017') } | Should -Throw -PassThru
         "$err" | Should -Match 'no longer supported'
         "$err" | Should -Match 'Adobe Acrobat'
+    }
+}
+
+Describe 'Snagit release metadata' {
+    It 'selects the Snagit zip asset and parses its version' {
+        Mock Invoke-RestMethod {
+            @{
+                tag_name = 'v1.0'
+                assets = @(
+                    @{ name = 'checksums.txt'; browser_download_url = 'https://example.test/checksums.txt' }
+                    @{ name = 'Snagit-ADMX-v1.0.zip'; browser_download_url = 'https://example.test/Snagit-ADMX-v1.0.zip' }
+                )
+            }
+        }
+        $release = Get-EvergreenAdmxSnagit
+        $release.Version | Should -Be ([version]'1.0')
+        $release.URI | Should -Be 'https://example.test/Snagit-ADMX-v1.0.zip'
+        Should -Invoke Invoke-RestMethod -Times 1 -Exactly -ParameterFilter {
+            $Uri -eq 'https://api.github.com/repos/systmworks/ADMX-Snagit/releases/latest'
+        }
+    }
+
+    It 'rejects releases without the policy zip' {
+        Mock Invoke-RestMethod { @{ tag_name = 'v1.0'; assets = @() } }
+        { Get-EvergreenAdmxSnagit } | Should -Throw -ExpectedMessage '*no Snagit-ADMX zip asset*'
+    }
+
+    It 'resolves the TechSmith alias' {
+        Resolve-EvergreenAdmxInclude -Include 'TechSmith Snagit' | Should -Be 'Snagit'
+    }
+}
+
+Describe 'Snagit template processing' {
+    BeforeEach {
+        $script:PreviousTemp = $env:TEMP
+        $env:TEMP = Join-Path $TestDrive 'temp'
+        $script:WorkingDirectory = Join-Path $TestDrive 'work'
+        $script:UseProductFolders = $false
+        $script:StampAdmxRevision = $false
+        $source = Join-Path $TestDrive 'source'
+        $language = Join-Path $source 'en-US'
+        $null = New-Item $env:TEMP,$language,(Join-Path $script:WorkingDirectory 'downloads') -ItemType Directory -Force
+        Set-Content (Join-Path $source 'Snagit.admx') '<policyDefinitions revision="1.0" schemaVersion="1.0"><resources minRequiredRevision="1.0" /></policyDefinitions>'
+        Set-Content (Join-Path $language 'Snagit.adml') '<policyDefinitionResources revision="1.0" schemaVersion="1.0" />'
+        $script:SnagitZip = Join-Path $TestDrive 'Snagit.zip'
+        Compress-Archive -Path (Join-Path $source '*') -DestinationPath $script:SnagitZip -Force
+        Mock Get-EvergreenAdmxSnagit { @{ Version = [version]'1.0'; URI = 'https://example.test/Snagit-ADMX-v1.0.zip' } }
+        Mock Invoke-FileDownload { Copy-Item -LiteralPath $script:SnagitZip -Destination $OutFile -Force }
+    }
+
+    AfterEach {
+        $env:TEMP = $script:PreviousTemp
+    }
+
+    It 'copies ADMX and en-US ADML and removes temporary extraction files' {
+        $release = Invoke-EvergreenAdmxSnagit -Languages @('en-US', 'fr-FR') -WarningAction SilentlyContinue
+        $release.Version | Should -Be ([version]'1.0')
+        Test-Path (Join-Path $script:WorkingDirectory 'admx/Snagit.admx') | Should -BeTrue
+        Test-Path (Join-Path $script:WorkingDirectory 'admx/en-US/Snagit.adml') | Should -BeTrue
+        @(Get-ChildItem $env:TEMP -Directory -Filter 'EvergreenAdmx-Snagit-*').Count | Should -Be 0
+    }
+
+    It 'uses product folders and stamps revisions when requested' {
+        $script:UseProductFolders = $true
+        $script:StampAdmxRevision = $true
+        Mock Get-EvergreenAdmxSnagit { @{ Version = [version]'2.3'; URI = 'https://example.test/Snagit-ADMX-v2.3.zip' } }
+        $null = Invoke-EvergreenAdmxSnagit -Languages 'en-US'
+        $file = Join-Path $script:WorkingDirectory 'admx/Snagit/Snagit.admx'
+        ([xml](Get-Content $file -Raw)).policyDefinitions.revision | Should -Be '2.3'
+    }
+
+    It 'skips a release already processed' {
+        Invoke-EvergreenAdmxSnagit -Version '1.0' | Should -BeNullOrEmpty
+        Should -Invoke Invoke-FileDownload -Times 0 -Exactly
+    }
+
+    It 'fails on incomplete archives and still cleans temporary files' {
+        Mock Expand-Archive { $null = New-Item $DestinationPath -ItemType Directory -Force }
+        { Invoke-EvergreenAdmxSnagit } | Should -Throw -ExpectedMessage '*must contain Snagit.admx*'
+        @(Get-ChildItem $env:TEMP -Directory -Filter 'EvergreenAdmx-Snagit-*').Count | Should -Be 0
+    }
+
+    It 'does not report success when copying fails' {
+        Mock Copy-Admx { Write-Error 'Template copy failed.' }
+        { Invoke-EvergreenAdmxSnagit } | Should -Throw -ExpectedMessage '*Template copy failed*'
+        @(Get-ChildItem $env:TEMP -Directory -Filter 'EvergreenAdmx-Snagit-*').Count | Should -Be 0
     }
 }
 

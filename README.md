@@ -67,7 +67,7 @@ Install-PSResource EvergreenAdmx -Reinstall
 
 ## ⚡ Quick start
 
-Defaults (Windows 11 25H2 plus Edge, OneDrive, 365 Apps, Clipchamp, Notepad, Winget, and Windows Terminal) into the current folder:
+Defaults (Windows 11 26H2 plus Edge, OneDrive, 365 Apps, Clipchamp, Notepad, Winget, and Windows Terminal) into the current folder:
 
 ```powershell
 .\EvergreenAdmx.ps1
@@ -99,6 +99,18 @@ Windows 10 LTSC 2021 (`21H2`):
 
 ```powershell
 .\EvergreenAdmx.ps1 -WindowsVersion 10 -WindowsFeatureVersion 21H2
+```
+
+Windows 11 25H2 instead of the default 26H2:
+
+```powershell
+.\EvergreenAdmx.ps1 -WindowsVersion 11 -WindowsFeatureVersion 25H2
+```
+
+Community Snagit 2025 / 2026 templates:
+
+```powershell
+.\EvergreenAdmx.ps1 -Include Snagit
 ```
 
 Selected products, grouped into product folders:
@@ -253,10 +265,11 @@ Shared defaults: `Microsoft Edge`, `Microsoft OneDrive`, `Microsoft 365 Apps`, `
 - [`Schannel`][ref-schannel] (Crosse Schannel GPO templates)
 - [`Security ADMX`][ref-security-admx] (Custom template for Windows hardening)
 - [`Slack`][ref-slack]
+- [`Snagit`][ref-snagit] (community template for Snagit 2025 / 2026; en-US)
 - [`Specops Authentication Client`][ref-specops] (on-prem + Entra ID)
 - [`TeamViewer`][ref-teamviewer]
 - [`Windows 10`][ref-win10-22h2] ([`21H2`][ref-win10-21h2] / [`22H2`][ref-win10-22h2])
-- [`Windows 11`][ref-win11-25h2] ([`23H2`][ref-win11-23h2] / [`24H2`][ref-win11-24h2] / [`25H2`][ref-win11-25h2])
+- [`Windows 11`][ref-win11-26h2] ([`23H2`][ref-win11-23h2] / [`24H2`][ref-win11-24h2] / [`25H2`][ref-win11-25h2] / [`26H2`][ref-win11-26h2])
 - [`Windows 2022`][ref-winserver-2022] (Windows Server 2022)
 - [`Windows 2025`][ref-winserver-2025] (Windows Server 2025)
 - [`Windows Terminal`][ref-windows-terminal]
@@ -301,11 +314,11 @@ When set, Admx files are copied to their respective product folders under `admx`
 Specifies the Windows 10 or Windows 11 feature version to get the Admx files for.
 
 - Windows 10: `21H2`, `22H2` (default `22H2`)
-- Windows 11: `23H2`, `24H2`, `25H2` (default `25H2`)
+- Windows 11: `23H2`, `24H2`, `25H2`, `26H2` (default `26H2`)
 
 Ignored when `-WindowsVersion` is `2022` or `2025`.
 
-Current Windows 11 ADMX templates (`23H2` / `24H2` / `25H2`) can also manage Windows 10 clients; some settings apply only to newer OS versions. Windows 10 `21H2` / `22H2` remain available for LTSC and ESU — see [Notes](#notes).
+Current Windows 11 ADMX templates (`23H2` / `24H2` / `25H2` / `26H2`) can also manage Windows 10 clients; some settings apply only to newer OS versions. Windows 10 `21H2` / `22H2` remain available for LTSC and ESU — see [Notes](#notes).
 
 ### -WindowsVersion
 
@@ -323,6 +336,8 @@ Defaults to the current script location.
 <a id="breaking-changes"></a>
 
 ## ⚠️ Breaking changes
+
+In **2610.0**, Windows 11 defaults to **26H2**. Pass `-WindowsFeatureVersion 25H2` to keep using the previous templates.
 
 Highlights in **2607.0** (full history and earlier breaking changes in the [Changelog](CHANGELOG.md)):
 
@@ -417,6 +432,7 @@ This project is licensed under the [MIT License](LICENSE).
 [ref-win11-23h2]: https://www.microsoft.com/en-us/download/details.aspx?id=105667
 [ref-win11-24h2]: https://www.microsoft.com/en-us/download/details.aspx?id=106254
 [ref-win11-25h2]: https://www.microsoft.com/en-us/download/details.aspx?id=108542
+[ref-win11-26h2]: https://www.microsoft.com/en-us/download/details.aspx?id=108847
 [ref-winserver-2022]: https://www.microsoft.com/en-us/download/details.aspx?id=104003
 [ref-winserver-2025]: https://www.microsoft.com/en-us/download/details.aspx?id=106295
 [ref-winget]: https://github.com/microsoft/winget-cli/releases
@@ -425,6 +441,7 @@ This project is licensed under the [MIT License](LICENSE).
 [ref-schannel]: https://github.com/Crosse/SchannelGroupPolicy
 [ref-security-admx]: https://github.com/Harvester57/Security-ADMX
 [ref-slack]: https://slack.com/help/articles/11906214948755-Manage-desktop-app-configurations
+[ref-snagit]: https://github.com/systmworks/ADMX-Snagit
 [ref-teamviewer]: https://github.com/systmworks/TeamViewer-ADMX
 [ref-wau]: https://github.com/Romanitho/Winget-AutoUpdate
 [ref-wau-intune]: https://github.com/Weatherlights/Winget-AutoUpdate-Intune

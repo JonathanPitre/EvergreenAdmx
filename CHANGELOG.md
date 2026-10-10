@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses a `YYMM.patch` release versioning scheme.
 
+## [2610.0] - Unreleased
+
+### Added
+
+- Added community Snagit 2025 / 2026 ADMX from [systmworks/ADMX-Snagit](https://github.com/systmworks/ADMX-Snagit), including the `TechSmith Snagit` alias and language fallback ([#90](https://github.com/msfreaks/EvergreenAdmx/issues/90))
+- Added Windows 11 26H2 ADMX support using official Microsoft download ID `108847` ([#91](https://github.com/msfreaks/EvergreenAdmx/issues/91))
+- Added regression tests for typed `-Include` resolution, default products, 26H2 selection, and Snagit release/extraction behavior; CI now tests PowerShell 7 and Windows PowerShell 5.1
+
+### Changed
+
+- Windows 11 now defaults to `26H2`; Windows 10 continues to default to `22H2`, and explicit older supported feature versions remain available
+- Updated script metadata to `2610.0` so release tag validation matches the upcoming release
+- Pinned GitHub Actions to current stable commit SHAs, including checkout 7.0.1, upload-artifact 7.0.2, cache 6.1.0, and markdownlint-cli2-action 24.2.0
+- Pinned Pester to 6.2.0 and PSScriptAnalyzer to 1.25.0; cached modules skip repeated Gallery downloads, and test jobs use PSResourceGet for module acquisition
+- Added workflow concurrency controls, bounded timeouts, short artifact retention, and checkouts without persisted credentials; release smoke tests now check out the release tag
+- Nightly tests stop on processing errors and include verbose product diagnostics; Gallery publication checks query immediately before waiting for propagation
+- Nightly checks ensure WinGet and 7-Zip are available before testing installer-based products, bootstrapping WinGet only when missing
+
+### Fixed
+
+- Fixed all products being skipped when `-Include` contains multiple entries or uses defaults: the resolver returned a nested array that the script's `[string[]]` variable converted to one space-separated string ([#89](https://github.com/msfreaks/EvergreenAdmx/issues/89)); this also caused [nightly run 37200731000](https://github.com/JonathanPitre/EvergreenAdmx/actions/runs/37200731000) to produce zero ADMX files
+- Preserved the PowerShell 7 publishing fix for the unavailable legacy NuGet provider feed ([#87](https://github.com/msfreaks/EvergreenAdmx/issues/87)); PowerShellGet 2.2.5 remains the supported publishing dependency
+
 ## [2608.0] 2026-08-01
 
 ### Added

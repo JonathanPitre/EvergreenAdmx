@@ -1,6 +1,6 @@
 #Requires -Version 5.1
 # Full-product health check. Tag: Nightly
-# Excludes Custom Policy Store (needs path) and Windows 10 (incompatible with default Win11 25H2).
+# Excludes Custom Policy Store (needs path) and Windows 10 (incompatible with default Win11 26H2).
 # Run elevated (EvergreenAdmx.ps1 requires Administrator).
 
 BeforeAll {
@@ -25,12 +25,14 @@ AfterAll {
 
 Describe 'Full product matrix' -Tag 'Nightly' {
     It 'processes all products for en-US, es, and fr-FR' {
+        $ErrorActionPreference = 'Stop'
         $script:Products.Count | Should -BeGreaterThan 20
 
         & $script:ScriptPath `
             -WorkingDirectory $script:WorkRoot `
             -Languages @('en-US', 'es', 'fr-FR') `
-            -Include $script:Products
+            -Include $script:Products `
+            -Verbose
 
         $admxRoot = Join-Path -Path $script:WorkRoot -ChildPath 'admx'
         Test-Path -LiteralPath $admxRoot | Should -BeTrue

@@ -1,6 +1,6 @@
 <#PSScriptInfo
 
-.VERSION 2607.1
+.VERSION 2610.0
 
 .GUID 999952b7-1337-4018-a1b9-499fad48e734
 
@@ -48,10 +48,10 @@
 .PARAMETER WindowsFeatureVersion
     Specifies Windows 10 or 11 feature version to get the Admx files for.
     Valid values are: 21H2, 22H2 for Windows 10.
-    Valid values are: 23H2, 24H2, 25H2 for Windows 11.
-    Defaults to 25H2.
+    Valid values are: 23H2, 24H2, 25H2, 26H2 for Windows 11.
+    Defaults to 26H2.
 
-    Note: Current Windows 11 ADMX templates (23H2 / 24H2 / 25H2) can also manage Windows 10 clients; some settings apply only to newer OS versions.
+    Note: Current Windows 11 ADMX templates (23H2 / 24H2 / 25H2 / 26H2) can also manage Windows 10 clients; some settings apply only to newer OS versions.
 
 .PARAMETER WorkingDirectory
     Specifies a Working Directory for the script.
@@ -77,8 +77,9 @@
 
 .PARAMETER Include
     Array containing Admx products to include when checking for updates.
+    Snagit downloads community policy templates for Snagit 2025 and 2026; 'TechSmith Snagit' is an alias.
     Accepts canonical product names and short aliases (ProductKey, compact forms, and former names), e.g. "BISF" for "BIS-F", "Edge" for "Microsoft Edge".
-    Valid products are: "Custom Policy Store", "Windows 10", "Windows 11", "Windows 2022", "Windows 2025", "Microsoft Edge", "Microsoft OneDrive", "Microsoft 365 Apps", "Microsoft FSLogix", "Adobe Acrobat", "Adobe Reader", "Adobe DC", "BIS-F", "Citrix Workspace App", "Google Chrome", "Mozilla Firefox", "Mozilla Thunderbird", "Zoom", "Zoom VDI", "Microsoft AVD", "Microsoft Winget", "Microsoft PowerToys", "Windows Terminal", "Brave Browser", "Microsoft Notepad", "Microsoft Clipchamp", "Microsoft Visual Studio", "Microsoft VS Code", "Slack", "1Password", "TeamViewer", "Security ADMX", "Schannel", "Dell Command Update", "Winget-AutoUpdate", "Winget-AutoUpdate-Intune", "PSAppDeployToolkit", "Devolutions Remote Desktop Manager", "Dropbox", "Foxit PDF", "LibreOffice", "HP Anyware", "Specops Authentication Client", "WSL", "Lenovo Dock Manager", "PDF-XChange", "RealVNC Connect", "ABBYY FineReader PDF", "Admin By Request", "GoTo".
+    Valid products are: "Custom Policy Store", "Windows 10", "Windows 11", "Windows 2022", "Windows 2025", "Microsoft Edge", "Microsoft OneDrive", "Microsoft 365 Apps", "Microsoft FSLogix", "Adobe Acrobat", "Adobe Reader", "Adobe DC", "Snagit", "BIS-F", "Citrix Workspace App", "Google Chrome", "Mozilla Firefox", "Mozilla Thunderbird", "Zoom", "Zoom VDI", "Microsoft AVD", "Microsoft Winget", "Microsoft PowerToys", "Windows Terminal", "Brave Browser", "Microsoft Notepad", "Microsoft Clipchamp", "Microsoft Visual Studio", "Microsoft VS Code", "Slack", "1Password", "TeamViewer", "Security ADMX", "Schannel", "Dell Command Update", "Winget-AutoUpdate", "Winget-AutoUpdate-Intune", "PSAppDeployToolkit", "Devolutions Remote Desktop Manager", "Dropbox", "Foxit PDF", "LibreOffice", "HP Anyware", "Specops Authentication Client", "WSL", "Lenovo Dock Manager", "PDF-XChange", "RealVNC Connect", "ABBYY FineReader PDF", "Admin By Request", "GoTo".
     Defaults to "Windows 11", "Microsoft Edge", "Microsoft OneDrive", "Microsoft 365 Apps", "Microsoft Clipchamp", "Microsoft Notepad", "Microsoft Winget", "Windows Terminal".
 
 .PARAMETER PreferLocalOneDrive
@@ -155,12 +156,12 @@ param(
     [ValidateSet('10', '11', '2022', '2025')]
     [System.String] $WindowsVersion = '11',
     [Alias('WindowsFeatureEdition')]
-    [ValidateSet('21H2', '22H2', '23H2', '24H2', '25H2')]
+    [ValidateSet('21H2', '22H2', '23H2', '24H2', '25H2', '26H2')]
     [System.String] $WindowsFeatureVersion = $(
         switch ($WindowsVersion) {
             '10' { '22H2' }
-            '11' { '25H2' }
-            default { '25H2' }
+            '11' { '26H2' }
+            default { '26H2' }
         }
     ),
     [Parameter(Mandatory = $false)]
@@ -257,6 +258,7 @@ function Get-EvergreenAdmxProductCatalog {
         [PSCustomObject]@{ Name = 'Adobe Acrobat'; Aliases = @('AdobeAcrobat', 'Acrobat') }
         [PSCustomObject]@{ Name = 'Adobe Reader'; Aliases = @('AdobeReader', 'Reader') }
         [PSCustomObject]@{ Name = 'Adobe DC'; Aliases = @('AdobeDC') }
+        [PSCustomObject]@{ Name = 'Snagit'; Aliases = @('TechSmith Snagit') }
         [PSCustomObject]@{ Name = 'BIS-F'; Aliases = @('BISF', 'Base Image Script Framework', 'BaseImageScriptFramework') }
         [PSCustomObject]@{ Name = 'Citrix Workspace App'; Aliases = @('CitrixWorkspaceApp', 'Citrix', 'CWA') }
         [PSCustomObject]@{ Name = 'Google Chrome'; Aliases = @('GoogleChrome', 'Chrome') }
@@ -379,7 +381,7 @@ Aliases such as ProductKey short names are accepted (e.g. 'BISF' for 'BIS-F').
         }
     }
 
-    return , @($resolved.ToArray())
+    return $resolved.ToArray()
 }
 
 # Validate feature version based on Windows version
@@ -1490,10 +1492,10 @@ function Get-WindowsDownloadId {
         Specifies Windows major version. Supports 10, 11, 2022 or 2025. Default is 11.
 
     .PARAMETER WindowsFeatureVersion
-        Specifies Windows client feature edition. Default is 25H2.
+        Specifies Windows client feature edition. Default is 26H2.
 
     .EXAMPLE
-        Get-WindowsDownloadId -WindowsVersion 11 -WindowsFeatureVersion 25H2
+        Get-WindowsDownloadId -WindowsVersion 11 -WindowsFeatureVersion 26H2
     #>
 
     param (
@@ -1505,16 +1507,16 @@ function Get-WindowsDownloadId {
         [ValidateScript({
                 if ($WindowsVersion -eq '10' -and $_ -in @('21H2', '22H2')) {
                     return $true
-                } elseif ($WindowsVersion -eq '11' -and $_ -in @('23H2', '24H2', '25H2')) {
+                } elseif ($WindowsVersion -eq '11' -and $_ -in @('23H2', '24H2', '25H2', '26H2')) {
                     return $true
                 } elseif ($WindowsVersion -eq '2022' -or $WindowsVersion -eq '2025') {
                     return $true
                 } else {
-                    throw "Invalid Windows Feature Version '$_' for Windows $WindowsVersion. Windows 10 supports: 21H2, 22H2. Windows 11 supports: 23H2, 24H2, 25H2. Windows 2022 and 2025 has no Windows Feature Versions."
+                    throw "Invalid Windows Feature Version '$_' for Windows $WindowsVersion. Windows 10 supports: 21H2, 22H2. Windows 11 supports: 23H2, 24H2, 25H2, 26H2. Windows 2022 and 2025 has no Windows Feature Versions."
                 }
             })]
         [ValidateNotNullOrEmpty()]
-        [string]$WindowsFeatureVersion = '25H2'
+        [string]$WindowsFeatureVersion = '26H2'
     )
 
     switch ($WindowsVersion) {
@@ -1523,7 +1525,7 @@ function Get-WindowsDownloadId {
             break
         }
         11 {
-            return (@( @{ '23H2' = '105667' }, @{ '24H2' = '106254' }, @{ '25H2' = '108542' } ).$WindowsFeatureVersion)
+            return (@( @{ '23H2' = '105667' }, @{ '24H2' = '106254' }, @{ '25H2' = '108542' }, @{ '26H2' = '108847' } ).$WindowsFeatureVersion)
             break
         }
         2022 {
@@ -2653,6 +2655,58 @@ function Invoke-EvergreenAdmxAdobeDC {
     } else {
         # version already processed
         return $null
+    }
+}
+
+function Get-EvergreenAdmxSnagit {
+    <#
+    .SYNOPSIS
+        Returns the latest community Snagit ADMX release version and zip URI.
+    #>
+    $latest = Invoke-RestMethod -Uri 'https://api.github.com/repos/systmworks/ADMX-Snagit/releases/latest' -ErrorAction Stop
+    $asset = $latest.assets | Where-Object { $_.name -like 'Snagit-ADMX-*.zip' } | Select-Object -First 1
+    if (-not $asset.browser_download_url) {
+        throw 'The latest Snagit ADMX release has no Snagit-ADMX zip asset.'
+    }
+    $version = [version]($latest.tag_name -replace '^v', '')
+    return @{ Version = $version; URI = $asset.browser_download_url }
+}
+
+function Invoke-EvergreenAdmxSnagit {
+    <#
+    .SYNOPSIS
+        Downloads and copies community Snagit 2025 and 2026 policy templates.
+    #>
+    param(
+        [string]$Version,
+        [string]$PolicyStore = $null,
+        [string[]]$Languages = $null
+    )
+
+    $ErrorActionPreference = 'Stop'
+    $Evergreen = Get-EvergreenAdmxSnagit
+    if ($Version -and [version]$Evergreen.Version -le [version]$Version) {
+        return $null
+    }
+
+    $ProductName = 'Snagit'
+    $ProductFolder = ''; if ($UseProductFolders) { $ProductFolder = "\$($ProductName)" }
+    $OutFile = "$($WorkingDirectory)\downloads\$($Evergreen.URI.Split('/')[-1])"
+    $TempFolder = Join-Path $env:TEMP ("EvergreenAdmx-Snagit-{0}" -f [guid]::NewGuid().ToString('N'))
+    try {
+        Invoke-FileDownload -Uri $Evergreen.URI -OutFile $OutFile
+        Expand-Archive -Path $OutFile -DestinationPath $TempFolder -Force
+        $SourceAdmx = (Get-ChildItem -LiteralPath $TempFolder -Recurse -Filter 'Snagit.admx' -File | Select-Object -First 1).DirectoryName
+        if (-not $SourceAdmx -or -not (Test-Path -LiteralPath (Join-Path $SourceAdmx 'en-US\Snagit.adml'))) {
+            throw 'The Snagit ADMX archive must contain Snagit.admx and en-US/Snagit.adml.'
+        }
+        $TargetAdmx = "$($WorkingDirectory)\admx$($ProductFolder)"
+        Copy-Admx -SourceFolder $SourceAdmx -TargetFolder $TargetAdmx -PolicyStore $PolicyStore -ProductName $ProductName -Languages $Languages -Revision $(if ($StampAdmxRevision) { $Evergreen.Version })
+        return $Evergreen
+    } finally {
+        if (Test-Path -LiteralPath $TempFolder) {
+            Remove-Item -LiteralPath $TempFolder -Recurse -Force
+        }
     }
 }
 
@@ -5865,6 +5919,15 @@ if ($Include -notcontains 'Adobe DC') {
     Write-Verbose "`nProcessing Admx files for Adobe DC"
     $admx = Invoke-EvergreenAdmxAdobeDC -Version $AdmxVersions.AdobeDC.Version -PolicyStore $PolicyStore -Languages $Languages
     Update-AdmxVersion -AdmxVersions ([ref]$AdmxVersions) -ProductKey 'AdobeDC' -AdmxData $admx
+}
+
+# Snagit
+if ($Include -notcontains 'Snagit') {
+    Write-Verbose "`nSkipping Snagit"
+} else {
+    Write-Verbose "`nProcessing Admx files for Snagit"
+    $admx = Invoke-EvergreenAdmxSnagit -Version $AdmxVersions.Snagit.Version -PolicyStore $PolicyStore -Languages $Languages
+    Update-AdmxVersion -AdmxVersions ([ref]$AdmxVersions) -ProductKey 'Snagit' -AdmxData $admx
 }
 
 # Security ADMX

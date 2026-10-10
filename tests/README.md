@@ -1,6 +1,6 @@
 # EvergreenAdmx tests
 
-Pester 5 suites for EvergreenAdmx.
+Pester suites for EvergreenAdmx. CI uses Pester 6.2.0 and PSScriptAnalyzer 1.25.0.
 
 | Suite | File | Tag | When |
 | --- | --- | --- | --- |
@@ -11,12 +11,19 @@ Pester 5 suites for EvergreenAdmx.
 ## Prerequisites
 
 - Windows PowerShell 5.1+ or PowerShell 7+
-- [Pester](https://pester.dev/) 5.5+
+- [Pester](https://pester.dev/) 6.2.0 (the version pinned in CI)
 - Integration / Nightly require an elevated session (`#Requires -RunAsAdministrator`)
 
 ```powershell
-Install-Module Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force -SkipPublisherCheck
+Install-Module Pester -RequiredVersion 6.2.0 -Scope CurrentUser -Force -SkipPublisherCheck
+Import-Module Pester -RequiredVersion 6.2.0
 ```
+
+CI runs unit tests under both PowerShell 7 and Windows PowerShell 5.1. Modules are cached with version-specific keys and installed only on cache misses. The same Pester cache is shared by release smoke and nightly workflows.
+
+Unit tests cover multi-product/default `-Include` resolution at the typed script call site, Windows 11 26H2 download selection, and Snagit asset selection, archive validation, language fallback, product folders, revision stamping, and cleanup.
+
+Release smoke includes real Edge and Snagit downloads plus scheduled-task registration. The weekly full matrix retains all catalog products except Custom Policy Store and Windows 10; it stops on processing errors and prints verbose diagnostics. Its workflow ensures WinGet and 7-Zip are available before downloads. These suites require Windows and are separate from the fast unit suite.
 
 ## Local runs
 
