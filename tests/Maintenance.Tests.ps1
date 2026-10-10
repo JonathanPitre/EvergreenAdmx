@@ -267,6 +267,14 @@ Describe 'Reviewed release catalog updates' {
         $updated | Should -Match "26H2'; Expected = '108847'"
     }
 
+    It 'updates Server fixtures when they use an ignored feature version' {
+        $baseline = @($script:Catalog.Windows | ForEach-Object { $_.Clone() })
+        ($script:Catalog.Windows | Where-Object { $_.Version -eq '2025' }).DownloadId = '199999'
+        $fixture = "@{ WindowsVersion = 2025; WindowsFeatureVersion = '25H2'; Expected = '108430' }"
+        $updated = ConvertTo-UpdatedWindowsTestSource $fixture $baseline $script:Catalog
+        $updated | Should -Match "WindowsVersion = 2025; WindowsFeatureVersion = '25H2'; Expected = '199999'"
+    }
+
     It 'supports a newly reviewed client major and server year without new dispatch branches' {
         Add-NewWindowsRelease $script:Catalog @(
             @{ Version = '12'; Feature = '99H2'; DownloadId = '199998'; Default = $true }

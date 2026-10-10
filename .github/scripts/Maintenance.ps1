@@ -200,7 +200,8 @@ function ConvertTo-UpdatedWindowsTestSource {
     foreach ($old in $Baseline) {
         $release = $Catalog.Windows | Where-Object { $_.Version -eq $old.Version -and $_.Feature -eq $old.Feature } | Select-Object -First 1
         if ($release.DownloadId -eq $old.DownloadId) { continue }
-        $pattern = '(WindowsVersion\s*=\s*' + [regex]::Escape($old.Version) + ';\s*WindowsFeatureVersion\s*=\s*''' + [regex]::Escape($old.Feature) + ''';\s*Expected\s*=\s*'')' + [regex]::Escape($old.DownloadId) + '('')'
+        $featurePattern = if ([int]$old.Version -ge 2000) { "[^']*" } else { [regex]::Escape($old.Feature) }
+        $pattern = '(WindowsVersion\s*=\s*' + [regex]::Escape($old.Version) + ';\s*WindowsFeatureVersion\s*=\s*''' + $featurePattern + ''';\s*Expected\s*=\s*'')' + [regex]::Escape($old.DownloadId) + '('')'
         $replacement = '${1}' + $release.DownloadId + '${2}'
         $Source = [regex]::Replace($Source, $pattern, $replacement)
     }
