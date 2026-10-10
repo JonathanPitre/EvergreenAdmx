@@ -94,19 +94,22 @@ Describe 'Get-WindowsDownloadId' {
             Should -Throw -ExpectedMessage '*Invalid Windows Feature Version*'
     }
 
-    It 'defaults to the Windows 11 26H2 download' {
-        Get-WindowsDownloadId | Should -Be '108847'
-    }
-
-    It 'selects the correct default feature version for Windows <WindowsVersion>' -ForEach @(
-        @{ WindowsVersion = '10'; Expected = '22H2' }
-        @{ WindowsVersion = '11'; Expected = '26H2' }
-    ) {
+    It 'defaults to the reviewed client release' {
         $tokens = $null
         $errors = $null
         $ast = [System.Management.Automation.Language.Parser]::ParseFile($script:ScriptPath, [ref]$tokens, [ref]$errors)
-        $parameter = $ast.ParamBlock.Parameters | Where-Object { $_.Name.VariablePath.UserPath -eq 'WindowsFeatureVersion' }
-        & ([scriptblock]::Create($parameter.DefaultValue.Extent.Text)) | Should -Be $Expected
+        $parameter = $ast.ParamBlock.Parameters | Where-Object { $_.Name.VariablePath.UserPath -eq 'WindowsVersion' }
+        $defaultVersion = & ([scriptblock]::Create($parameter.DefaultValue.Extent.Text))
+        $release = Get-EvergreenAdmxWindowsRelease -WindowsVersion $defaultVersion
+        Get-WindowsDownloadId | Should -Be $release.DownloadId
+    }
+
+    It 'selects the reviewed default feature version for Windows <WindowsVersion>' -ForEach @(
+        @{ WindowsVersion = '10' }
+        @{ WindowsVersion = '11' }
+    ) {
+        $expected = (Get-EvergreenAdmxReleaseCatalog).Windows | Where-Object { $_.Version -eq $WindowsVersion -and $_.Default }
+        (Get-EvergreenAdmxWindowsRelease -WindowsVersion $WindowsVersion).Feature | Should -Be $expected.Feature
     }
 }
 

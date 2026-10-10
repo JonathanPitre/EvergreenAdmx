@@ -39,6 +39,9 @@ jobs:
           ref: ${{ github.event.release.tag_name || github.sha }}
           persist-credentials: false
 
+      - name: Load dependency versions
+        run: ./.github/scripts/Set-DependencyEnvironment.ps1
+
       - name: Ensure PowerShellGet is current
         run: |
           $ErrorActionPreference = 'Stop'
@@ -49,8 +52,8 @@ jobs:
             Register-PSRepository -Default
           }
           Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-          if (-not (Get-Module -ListAvailable -Name PowerShellGet | Where-Object Version -eq ([version]'2.2.5'))) {
-            Install-Module -Name PowerShellGet -RequiredVersion 2.2.5 -Scope CurrentUser -Force -AllowClobber -SkipPublisherCheck
+          if (-not (Get-Module -ListAvailable -Name PowerShellGet | Where-Object Version -eq ([version]$env:POWERSHELLGET_VERSION))) {
+            Install-PSResource -Name PowerShellGet -Version $env:POWERSHELLGET_VERSION -Scope CurrentUser -Repository PSGallery -TrustRepository
           }
 
       - name: Validate script metadata and version
@@ -60,7 +63,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          Import-Module PowerShellGet -RequiredVersion 2.2.5
+          Import-Module PowerShellGet -RequiredVersion $env:POWERSHELLGET_VERSION
           [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
           $scriptPath = Join-Path $PWD 'EvergreenAdmx.ps1'
@@ -93,7 +96,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          Import-Module PowerShellGet -RequiredVersion 2.2.5
+          Import-Module PowerShellGet -RequiredVersion $env:POWERSHELLGET_VERSION
           $version = $env:SCRIPT_VERSION
           $found = Find-Script -Name EvergreenAdmx -RequiredVersion $version -Repository PSGallery -ErrorAction SilentlyContinue
           if ($found) {
@@ -112,7 +115,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          Import-Module PowerShellGet -RequiredVersion 2.2.5
+          Import-Module PowerShellGet -RequiredVersion $env:POWERSHELLGET_VERSION
           [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
           $dryRun = $env:DRY_RUN -eq 'true'
@@ -142,7 +145,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          Import-Module PowerShellGet -RequiredVersion 2.2.5
+          Import-Module PowerShellGet -RequiredVersion $env:POWERSHELLGET_VERSION
           $version = $env:SCRIPT_VERSION
           $found = $null
           for ($attempt = 1; $attempt -le 8; $attempt++) {

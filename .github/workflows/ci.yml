@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main, master]
   workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Expected maintenance branch commit (empty for normal manual runs)
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -13,10 +18,6 @@ permissions:
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
-
-env:
-  PESTER_VERSION: '6.2.0'
-  PSSA_VERSION: '1.25.0'
 
 jobs:
   lint-markdown:
@@ -28,6 +29,15 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      - name: Verify maintenance commit
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: |
+          if [ -n "$EXPECTED_SHA" ] && [ "$(git rev-parse HEAD)" != "$EXPECTED_SHA" ]; then
+            echo 'The maintenance branch changed before CI started.' >&2
+            exit 1
+          fi
 
       - name: markdownlint-cli2
         uses: DavidAnson/markdownlint-cli2-action@21c1be1b93ad9ed58fa840aacc3f279cde2a72ff # v24.2.0
@@ -51,6 +61,16 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Verify maintenance commit and load dependency versions
+        shell: pwsh
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: |
+          if ($env:EXPECTED_SHA -and (git rev-parse HEAD) -ne $env:EXPECTED_SHA) {
+            throw 'The maintenance branch changed before CI started.'
+          }
+          ./.github/scripts/Set-DependencyEnvironment.ps1
+
       - name: Cache test modules
         id: modules
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -72,7 +92,7 @@ jobs:
         shell: pwsh
         run: |
           Import-Module "./.psmodules/PSScriptAnalyzer/$env:PSSA_VERSION/PSScriptAnalyzer.psd1"
-          $paths = @('.\EvergreenAdmx.ps1', '.\tests')
+          $paths = @('.\EvergreenAdmx.ps1', '.\tests', '.\.github\scripts')
           $results = foreach ($path in $paths) {
             Invoke-ScriptAnalyzer -Path $path -Settings .\PSScriptAnalyzerSettings.psd1 -Recurse -Severity @('Error', 'Warning')
           }
@@ -92,7 +112,7 @@ jobs:
           Import-Module "./.psmodules/Pester/$env:PESTER_VERSION/Pester.psd1"
           $config = New-PesterConfiguration
           # Unit file only — avoids discovering Integration/Nightly containers.
-          $config.Run.Path = '.\tests\EvergreenAdmx.Tests.ps1'
+          $config.Run.Path = @('.\tests\EvergreenAdmx.Tests.ps1', '.\tests\Maintenance.Tests.ps1')
           $config.Run.Exit = $true
           $config.TestResult.Enabled = $true
           $config.TestResult.OutputPath = '.\tests\TestResults.Unit.xml'

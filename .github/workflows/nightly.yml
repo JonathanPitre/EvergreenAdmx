@@ -13,9 +13,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  PESTER_VERSION: '6.2.0'
-
 jobs:
   full-matrix:
     name: Full product matrix
@@ -26,6 +23,10 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      - name: Load dependency versions
+        shell: pwsh
+        run: ./.github/scripts/Set-DependencyEnvironment.ps1
 
       - name: Cache Pester
         id: modules
@@ -47,8 +48,8 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-            Install-PSResource -Name Microsoft.WinGet.Client -Version '1.29.380' -Scope CurrentUser -Repository PSGallery -TrustRepository
-            Import-Module Microsoft.WinGet.Client -RequiredVersion 1.29.380
+            Install-PSResource -Name Microsoft.WinGet.Client -Version $env:WINGET_CLIENT_VERSION -Scope CurrentUser -Repository PSGallery -TrustRepository
+            Import-Module Microsoft.WinGet.Client -RequiredVersion $env:WINGET_CLIENT_VERSION
             Repair-WinGetPackageManager -AllUsers -Force -Latest
             $wingetPath = Join-Path $env:LOCALAPPDATA 'Microsoft\WindowsApps'
             $env:PATH = "$wingetPath;$env:PATH"

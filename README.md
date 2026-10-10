@@ -27,6 +27,7 @@ Named as an homage to the [Evergreen module](https://github.com/EUCPilots/evergr
 - [Parameters](#parameters)
 - [Breaking changes](#breaking-changes)
 - [Notes](#notes)
+- [Maintenance automation](#maintenance-automation)
 - [Roadmap](#roadmap)
 - [Credits](#credits)
 - [License](#license)
@@ -67,7 +68,7 @@ Install-PSResource EvergreenAdmx -Reinstall
 
 ## ⚡ Quick start
 
-Defaults (Windows 11 26H2 plus Edge, OneDrive, 365 Apps, Clipchamp, Notepad, Winget, and Windows Terminal) into the current folder:
+Defaults (the latest reviewed Windows client templates plus Edge, OneDrive, 365 Apps, Clipchamp, Notepad, Winget, and Windows Terminal) into the current folder:
 
 ```powershell
 .\EvergreenAdmx.ps1
@@ -277,10 +278,7 @@ Shared defaults: `Microsoft Edge`, `Microsoft OneDrive`, `Microsoft 365 Apps`, `
 - [`Snagit`][ref-snagit] (community template for Snagit 2025 / 2026; en-US)
 - [`Specops Authentication Client`][ref-specops] (on-prem + Entra ID)
 - [`TeamViewer`][ref-teamviewer]
-- [`Windows 10`][ref-win10-22h2] ([`21H2`][ref-win10-21h2] / [`22H2`][ref-win10-22h2])
-- [`Windows 11`][ref-win11-26h2] ([`23H2`][ref-win11-23h2] / [`24H2`][ref-win11-24h2] / [`25H2`][ref-win11-25h2] / [`26H2`][ref-win11-26h2])
-- [`Windows 2022`][ref-winserver-2022] (Windows Server 2022)
-- [`Windows 2025`][ref-winserver-2025] (Windows Server 2025)
+- Windows client and Server families in the [reviewed release catalog](#reviewed-release-catalog), using names such as `Windows 11` and `Windows 2025`
 - [`Windows Terminal`][ref-windows-terminal]
 - [`Winget-AutoUpdate`][ref-wau]
 - [`Winget-AutoUpdate-Intune`][ref-wau-intune]
@@ -320,18 +318,13 @@ When set, Admx files are copied to their respective product folders under `admx`
 
 ### -WindowsFeatureVersion
 
-Specifies the Windows 10 or Windows 11 feature version to get the Admx files for.
+Specifies a reviewed Windows client feature version. Accepted editions and defaults are listed in the [reviewed release catalog](#reviewed-release-catalog). Ignored for Windows Server families.
 
-- Windows 10: `21H2`, `22H2` (default `22H2`)
-- Windows 11: `23H2`, `24H2`, `25H2`, `26H2` (default `26H2`)
-
-Ignored when `-WindowsVersion` is `2022` or `2025`.
-
-Current Windows 11 ADMX templates (`23H2` / `24H2` / `25H2` / `26H2`) can also manage Windows 10 clients; some settings apply only to newer OS versions. Windows 10 `21H2` / `22H2` remain available for LTSC and ESU — see [Notes](#notes).
+Current Windows 11 ADMX templates can also manage Windows 10 clients; some settings apply only to newer OS versions. Windows 10 templates remain available for LTSC and ESU — see [Notes](#notes).
 
 ### -WindowsVersion
 
-Specifies Windows major version. Supports `10`, `11`, `2022`, or `2025`. Default is `11`.
+Specifies a Windows client major version or Server year from the [reviewed release catalog](#reviewed-release-catalog). The newest reviewed client major is the default. Unreviewed releases are rejected before downloading files or changing the policy store.
 
 ### -WorkingDirectory
 
@@ -370,6 +363,41 @@ Highlights in **2607.0** (full history and earlier breaking changes in the [Chan
 - Windows 10 `21H2` is the base for **Windows 10 Enterprise LTSC 2021** (supported until January 2027, longer for IoT Enterprise LTSC)
 - Use `-CleanPolicyStore` (or `-CleanPolicyStoreOnly`) to remove known conflicting ADMX files (for example `WinStoreUI` / `Microsoft-Windows-Geolocation-WLPAdm`) and copy missing language ADMLs from `en-US` when available
 - Some Microsoft ADMX upgrades change GPO registry value types or paths (for example ErrorReporting `DefaultConsent` “unexpected type”, or SkyDrive → OneDrive registry keys). Those require rebuilding the affected GPO settings; the script does not rewrite `registry.pol`. See [Known issues for managing Group Policy clients](https://learn.microsoft.com/en-us/troubleshoot/windows-client/active-directory/known-issues-for-group-policy-clients)
+
+<a id="maintenance-automation"></a>
+
+## Maintenance automation
+
+Dependabot checks SHA-pinned GitHub Actions every Monday. PowerShell has no native Dependabot ecosystem, so the scheduled `maintenance.yml` workflow queries the PowerShell Gallery and updates [.github/powershell-dependencies.psd1](.github/powershell-dependencies.psd1). CI, release smoke, nightly tests, and Gallery publication all consume that manifest; exact versions keep runs reproducible. GitHub maintains the tools supplied by its runner images.
+
+Patch/minor dependency PRs merge automatically only after Markdownlint and the Windows PowerShell 5.1 and PowerShell 7 unit jobs pass. Major dependency updates stay open for human review. Automation explicitly dispatches CI for its proposed commit, uses no extra bot token, and refuses to overwrite maintenance branches containing human commits.
+
+The same weekly workflow discovers newer Windows families from Microsoft's [Central Store index](https://learn.microsoft.com/en-us/troubleshoot/windows-client/group-policy/create-and-manage-central-store) and ABBYY majors from its [help index](https://help.abbyy.com/en-us/). It validates new Windows packages through the existing extraction flow and checks ABBYY XML/resources before proposing catalog/default changes with updated documentation and CI. Microsoft can publish a package before listing it in the index, so detection can lag publication. Existing download IDs and historical supported selectors are retained. Product family data stays embedded in the standalone Gallery script.
+
+Foxit resolves candidate versions from its release history and selects the newest available Reader/Editor template pair. ABBYY resolves fresh attachment links within its approved major. Vendor markup or package format changes can still require a code fix; discovery failures appear in workflow logs.
+
+Repository settings require the three CI checks on `main`, block force pushes and deletion, enable Dependabot security updates and secret scanning with push protection, and default workflow tokens to read-only. GitHub's combined **Allow GitHub Actions to create and approve pull requests** setting stays enabled so the updater can open PRs; these workflows never submit approvals. Only maintenance PR publication and metadata-only Dependabot auto-merge receive write permissions. The latter never checks out PR code.
+
+Scheduled automation and Dependabot configuration become active after this change merges into the default branch. Maintainers can use **Actions → Dependency and product discovery → Run workflow** with `dry_run` enabled to inspect candidates without opening PRs. See [tests/README.md](tests/README.md) for local validation.
+
+### Reviewed release catalog
+
+<!-- release-catalog:start -->
+
+| Windows family | Feature version | Download ID | Default for family |
+| --- | --- | --- | --- |
+| 10 | 21H2 | [104042](https://www.microsoft.com/en-us/download/details.aspx?id=104042) | No |
+| 10 | 22H2 | [104677](https://www.microsoft.com/en-us/download/details.aspx?id=104677) | Yes |
+| 11 | 23H2 | [105667](https://www.microsoft.com/en-us/download/details.aspx?id=105667) | No |
+| 11 | 24H2 | [106254](https://www.microsoft.com/en-us/download/details.aspx?id=106254) | No |
+| 11 | 25H2 | [108542](https://www.microsoft.com/en-us/download/details.aspx?id=108542) | No |
+| 11 | 26H2 | [108847](https://www.microsoft.com/en-us/download/details.aspx?id=108847) | Yes |
+| 2022 | None | [104003](https://www.microsoft.com/en-us/download/details.aspx?id=104003) | Yes |
+| 2025 | None | [108430](https://www.microsoft.com/en-us/download/details.aspx?id=108430) | Yes |
+
+ABBYY FineReader approved major: **16**.
+
+<!-- release-catalog:end -->
 
 <a id="roadmap"></a>
 
@@ -416,7 +444,7 @@ This project is licensed under the [MIT License](LICENSE).
 [ref-dropbox]: https://github.com/dropbox/GPO-Templates
 [ref-foxit]: https://kb.foxit.com/s/articles/360040241112-Available-GPO-templates
 [ref-goto]: https://goto-desktop.goto.com/GoToAppAdministrativeTemplates.zip
-[ref-hp-anyware]: https://anyware.hp.com/components/standard-agent-for-windows/26.05/documentation/administrators-guide/reference/install-gpo-template-files
+[ref-hp-anyware]: https://anyware.hp.com/components/standard-agent-for-windows
 [ref-lenovo-vantage]: https://pcsupport.lenovo.com/us/en/solutions/hf003321
 [ref-lenovo-dock]: https://download.lenovo.com/consumer/options/policy_setup.exe
 [ref-libreoffice]: https://github.com/CollaboraOnline/ADMX
@@ -437,14 +465,6 @@ This project is licensed under the [MIT License](LICENSE).
 [ref-onedrive]: https://learn.microsoft.com/en-us/sharepoint/use-group-policy
 [ref-visual-studio]: https://www.microsoft.com/en-us/download/details.aspx?id=104405
 [ref-vscode]: https://code.visualstudio.com/docs/setup/enterprise
-[ref-win10-21h2]: https://www.microsoft.com/en-us/download/details.aspx?id=104042
-[ref-win10-22h2]: https://www.microsoft.com/en-us/download/details.aspx?id=104677
-[ref-win11-23h2]: https://www.microsoft.com/en-us/download/details.aspx?id=105667
-[ref-win11-24h2]: https://www.microsoft.com/en-us/download/details.aspx?id=106254
-[ref-win11-25h2]: https://www.microsoft.com/en-us/download/details.aspx?id=108542
-[ref-win11-26h2]: https://www.microsoft.com/en-us/download/details.aspx?id=108847
-[ref-winserver-2022]: https://www.microsoft.com/en-us/download/details.aspx?id=104003
-[ref-winserver-2025]: https://www.microsoft.com/en-us/download/details.aspx?id=106295
 [ref-winget]: https://github.com/microsoft/winget-cli/releases
 [ref-firefox]: https://github.com/mozilla/policy-templates
 [ref-psadt]: https://github.com/PSAppDeployToolkit/PSAppDeployToolkit

@@ -9,6 +9,10 @@ and this project uses a `YYMM.patch` release versioning scheme.
 
 ### Added
 
+- Added weekly Dependabot updates for SHA-pinned GitHub Actions and a scheduled PowerShell Gallery updater with one dependency manifest shared by all workflows
+- Added automatic patch/minor dependency merges gated by Markdownlint and both PowerShell unit jobs; major updates and discovered product families require human review
+- Added automatic discovery of newer Windows families and ABBYY FineReader majors, proposing catalog/default changes and documentation in tested PRs; Microsoft index publication lag is documented
+- Added Pester coverage for dependency classification, future Windows families, source validation, Microsoft/ABBYY discovery, and Foxit template package selection
 - Added opt-in Lenovo Commercial Vantage ADMX support: dynamically discovers the current Enterprise deployment ZIP, extracts policy files only, and detects same-version package rebuilds using the stored download URL ([#84](https://github.com/msfreaks/EvergreenAdmx/issues/84))
 - Added Lenovo Pester coverage for metadata discovery, aliases, explicit inclusion, selective extraction, language fallback, policy store copying, revision stamping, version/rebuild checks, and failure cleanup; nightly checks verify its templates and version record
 - Added community Snagit 2025 / 2026 ADMX from [systmworks/ADMX-Snagit](https://github.com/systmworks/ADMX-Snagit), including the `TechSmith Snagit` alias and language fallback ([#90](https://github.com/msfreaks/EvergreenAdmx/issues/90))
@@ -17,6 +21,10 @@ and this project uses a `YYMM.patch` release versioning scheme.
 
 ### Changed
 
+- Centralized reviewed Windows release mappings and ABBYY major selection inside the standalone script; Windows validation, product aliases, defaults, and dispatch consume that catalog
+- Removed duplicated module version pins from workflows and local testing instructions; the maintenance publisher uses scoped write permissions and dispatches CI for the exact proposed commit
+- Enabled required CI checks and force-push/deletion protection on `main`, Dependabot security updates, secret scanning with push protection, read-only default workflow tokens, auto-merge, and merged-branch cleanup on the maintained fork
+- ABBYY version records now include the approved major and attachment date, with one-time migration of older date-only records
 - Windows 11 now defaults to `26H2`; Windows 10 continues to default to `22H2`, and explicit older supported feature versions remain available
 - Updated script metadata to `2610.0` so release tag validation matches the upcoming release
 - Pinned GitHub Actions to current stable commit SHAs, including checkout 7.0.1, upload-artifact 7.0.2, cache 6.1.0, and markdownlint-cli2-action 24.2.0
@@ -27,6 +35,9 @@ and this project uses a `YYMM.patch` release versioning scheme.
 
 ### Fixed
 
+- Replaced Foxit's manually maintained candidate version list and failing HEAD probes with release-history discovery and ranged GET checks for both Reader and Editor templates
+- Removed stale ABBYY attachment URL fallbacks; missing or mismatched templates now fail clearly, and filenames follow the reviewed major
+- Read Windows package versions from structured Download Center metadata, including single-component versions, before storing a valid version record
 - Explicitly load both ZIP compression assemblies for Lenovo extraction and fixtures so Windows PowerShell 5.1 can resolve the archive types
 - Fixed all products being skipped when `-Include` contains multiple entries or uses defaults: the resolver returned a nested array that the script's `[string[]]` variable converted to one space-separated string ([#89](https://github.com/msfreaks/EvergreenAdmx/issues/89)); this also caused [nightly run 37200731000](https://github.com/JonathanPitre/EvergreenAdmx/actions/runs/37200731000) to produce zero ADMX files
 - Preserved the PowerShell 7 publishing fix for the unavailable legacy NuGet provider feed ([#87](https://github.com/msfreaks/EvergreenAdmx/issues/87)); PowerShellGet 2.2.5 remains the supported publishing dependency

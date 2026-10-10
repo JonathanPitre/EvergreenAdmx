@@ -12,9 +12,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.release.tag_name || github.ref }}
   cancel-in-progress: false
 
-env:
-  PESTER_VERSION: '6.2.0'
-
 jobs:
   integration-smoke:
     name: Integration smoke (Edge + Snagit + scheduled task)
@@ -26,6 +23,10 @@ jobs:
         with:
           ref: ${{ github.event.release.tag_name || github.sha }}
           persist-credentials: false
+
+      - name: Load dependency versions
+        shell: pwsh
+        run: ./.github/scripts/Set-DependencyEnvironment.ps1
 
       - name: Cache Pester
         id: modules
