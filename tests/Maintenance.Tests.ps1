@@ -242,6 +242,14 @@ Describe 'Reviewed release catalog updates' {
         $updated | Should -Match "Feature = '26H2'"
     }
 
+    It 'updates the quick-start default while keeping older release examples explicit' {
+        Add-NewWindowsRelease $script:Catalog @(@{ Version = '12'; Feature = '99H2'; DownloadId = '199998'; Default = $true }) | Should -BeTrue
+        $readme = "Defaults (Windows 11 26H2 plus Edge)`n`nWindows 11 25H2 instead of the default 26H2:"
+        $updated = ConvertTo-UpdatedWindowsQuickStart $readme $script:Catalog
+        $updated | Should -Match '^Defaults \(Windows 12 99H2 plus Edge\)'
+        $updated | Should -Match 'Windows 11 25H2 instead of the default 26H2:'
+    }
+
     It 'updates a newer package ID for an existing edition without changing its default' {
         Mock Get-WindowsReleaseCandidate { @{ PackageVersion = '3.0'; Published = [datetime]'2026-09-01' } }
         Add-NewWindowsRelease $script:Catalog @(@{ Version = '11'; Feature = '25H2'; DownloadId = '199999'; Default = $true; PackageVersion = '4.0'; Published = [datetime]'2026-10-01' }) | Should -BeTrue

@@ -195,6 +195,17 @@ function Get-ReleaseCatalogMarkdown {
     return $lines -join "`n"
 }
 
+function ConvertTo-UpdatedWindowsQuickStart {
+    param([string]$Source, [hashtable]$Catalog)
+    $clientVersion = ($Catalog.Windows.Version | Where-Object { [int]$_ -lt 2000 } | ForEach-Object { [int]$_ } | Measure-Object -Maximum).Maximum
+    $release = @($Catalog.Windows | Where-Object { [int]$_.Version -eq $clientVersion -and $_.Default })
+    if ($release.Count -ne 1) { throw 'Latest Windows client default not found.' }
+    $label = "Windows $($release[0].Version) $($release[0].Feature)"
+    $pattern = '(?m)^Defaults \(Windows \d+ \d{2}H[12] plus'
+    if ($Source -notmatch $pattern) { throw 'README quick-start default text not found.' }
+    return [regex]::Replace($Source, $pattern, [System.Text.RegularExpressions.MatchEvaluator]{ "Defaults ($label plus" }, 1)
+}
+
 function ConvertTo-UpdatedWindowsTestSource {
     param([string]$Source, [object[]]$Baseline, [hashtable]$Catalog)
     foreach ($old in $Baseline) {

@@ -75,6 +75,7 @@ if ($Kind -ne 'families') {
         $readmePath = Join-Path $root 'README.md'
         $readme = [IO.File]::ReadAllText($readmePath)
         if ($readme -notmatch '(?s)<!-- release-catalog:start -->.*?<!-- release-catalog:end -->') { throw 'README release catalog markers not found.' }
+        $readme = ConvertTo-UpdatedWindowsQuickStart $readme $catalog
         $readme = [regex]::Replace($readme, '(?s)<!-- release-catalog:start -->.*?<!-- release-catalog:end -->', [System.Text.RegularExpressions.MatchEvaluator]{ Get-ReleaseCatalogMarkdown $catalog })
         $changelogPath = Join-Path $root 'CHANGELOG.md'
         $changelog = [IO.File]::ReadAllText($changelogPath)
