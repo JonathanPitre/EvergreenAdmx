@@ -78,8 +78,9 @@
 .PARAMETER Include
     Array containing Admx products to include when checking for updates.
     Snagit downloads community policy templates for Snagit 2025 and 2026; 'TechSmith Snagit' is an alias.
+    Lenovo Commercial Vantage downloads the Enterprise deployment ZIP and extracts policy files only; requires explicit -Include.
     Accepts canonical product names and short aliases (ProductKey, compact forms, and former names), e.g. "BISF" for "BIS-F", "Edge" for "Microsoft Edge".
-    Valid products are: "Custom Policy Store", "Windows 10", "Windows 11", "Windows 2022", "Windows 2025", "Microsoft Edge", "Microsoft OneDrive", "Microsoft 365 Apps", "Microsoft FSLogix", "Adobe Acrobat", "Adobe Reader", "Adobe DC", "Snagit", "BIS-F", "Citrix Workspace App", "Google Chrome", "Mozilla Firefox", "Mozilla Thunderbird", "Zoom", "Zoom VDI", "Microsoft AVD", "Microsoft Winget", "Microsoft PowerToys", "Windows Terminal", "Brave Browser", "Microsoft Notepad", "Microsoft Clipchamp", "Microsoft Visual Studio", "Microsoft VS Code", "Slack", "1Password", "TeamViewer", "Security ADMX", "Schannel", "Dell Command Update", "Winget-AutoUpdate", "Winget-AutoUpdate-Intune", "PSAppDeployToolkit", "Devolutions Remote Desktop Manager", "Dropbox", "Foxit PDF", "LibreOffice", "HP Anyware", "Specops Authentication Client", "WSL", "Lenovo Dock Manager", "PDF-XChange", "RealVNC Connect", "ABBYY FineReader PDF", "Admin By Request", "GoTo".
+    Valid products are: "Custom Policy Store", "Windows 10", "Windows 11", "Windows 2022", "Windows 2025", "Microsoft Edge", "Microsoft OneDrive", "Microsoft 365 Apps", "Microsoft FSLogix", "Adobe Acrobat", "Adobe Reader", "Adobe DC", "Snagit", "BIS-F", "Citrix Workspace App", "Google Chrome", "Mozilla Firefox", "Mozilla Thunderbird", "Zoom", "Zoom VDI", "Microsoft AVD", "Microsoft Winget", "Microsoft PowerToys", "Windows Terminal", "Brave Browser", "Microsoft Notepad", "Microsoft Clipchamp", "Microsoft Visual Studio", "Microsoft VS Code", "Slack", "1Password", "TeamViewer", "Security ADMX", "Schannel", "Dell Command Update", "Winget-AutoUpdate", "Winget-AutoUpdate-Intune", "PSAppDeployToolkit", "Devolutions Remote Desktop Manager", "Dropbox", "Foxit PDF", "LibreOffice", "HP Anyware", "Specops Authentication Client", "WSL", "Lenovo Dock Manager", "Lenovo Commercial Vantage", "PDF-XChange", "RealVNC Connect", "ABBYY FineReader PDF", "Admin By Request", "GoTo".
     Defaults to "Windows 11", "Microsoft Edge", "Microsoft OneDrive", "Microsoft 365 Apps", "Microsoft Clipchamp", "Microsoft Notepad", "Microsoft Winget", "Windows Terminal".
 
 .PARAMETER PreferLocalOneDrive
@@ -292,6 +293,7 @@ function Get-EvergreenAdmxProductCatalog {
         [PSCustomObject]@{ Name = 'Specops Authentication Client'; Aliases = @('Specops', 'SpecopsClient', 'SpecopsAuthenticationClient', 'SPR', 'uReset', 'SpecopsPasswordReset') }
         [PSCustomObject]@{ Name = 'WSL'; Aliases = @('Windows Subsystem for Linux', 'WindowsSubsystemForLinux') }
         [PSCustomObject]@{ Name = 'Lenovo Dock Manager'; Aliases = @('DockManager', 'LenovoDockManager') }
+        [PSCustomObject]@{ Name = 'Lenovo Commercial Vantage'; Aliases = @('LenovoCommercialVantage', 'CommercialVantage') }
         [PSCustomObject]@{ Name = 'PDF-XChange'; Aliases = @('PDFXChange', 'PDF-X-Change', 'Tracker') }
         [PSCustomObject]@{ Name = 'RealVNC Connect'; Aliases = @('RealVNC', 'VNC', 'RealVNCServer', 'RealVNCViewer') }
         [PSCustomObject]@{ Name = 'ABBYY FineReader PDF'; Aliases = @('ABBYY', 'FineReader', 'FineReaderPDF', 'ABBYYFineReader') }
@@ -2655,6 +2657,90 @@ function Invoke-EvergreenAdmxAdobeDC {
     } else {
         # version already processed
         return $null
+    }
+}
+
+function Get-EvergreenAdmxLenovoCommercialVantage {
+    <#
+    .SYNOPSIS
+        Discovers the current Lenovo Commercial Vantage Enterprise deployment ZIP.
+    #>
+    $page = Invoke-WebRequest -Uri 'https://pcsupport.lenovo.com/us/en/solutions/hf003321' -UseBasicParsing -TimeoutSec 30 -ErrorAction Stop
+    if ($page.Content -notmatch '/us/en/api/v4/contents/cdn/hf003321_\d+\.js') {
+        throw 'The Lenovo Commercial Vantage page has no deployment metadata link.'
+    }
+    $metadataUri = 'https://pcsupport.lenovo.com' + $Matches[0]
+    $metadata = Invoke-WebRequest -Uri $metadataUri -UseBasicParsing -TimeoutSec 30 -ErrorAction Stop
+    # Decode Lenovo's JSON payload without executing the JavaScript wrapper.
+    if ($metadata.Content -notmatch '(?s)Object\.assign\(\s*window\.cdnData\s*,\s*(\{.*\})\s*\)\s*;?\s*$') {
+        throw 'Unexpected Lenovo Commercial Vantage deployment metadata format.'
+    }
+    $body = ($Matches[1] | ConvertFrom-Json -ErrorAction Stop).body
+    $packages = [regex]::Matches($body, 'https://download\.lenovo\.com/pccbbs/thinkvantage_en/metroapps/Vantage/LenovoCommercialVantage_(?<version>\d+\.\d+\.\d+\.\d+)\.(?<build>\d{14})\.zip')
+    $latest = $packages | Sort-Object -Property @{ Expression = { [version]$_.Groups['version'].Value }; Descending = $true }, @{ Expression = { $_.Groups['build'].Value }; Descending = $true } | Select-Object -First 1
+    if (-not $latest) {
+        throw 'Lenovo Commercial Vantage metadata has no official deployment ZIP.'
+    }
+    return @{ Version = [version]$latest.Groups['version'].Value; URI = $latest.Value }
+}
+
+function Invoke-EvergreenAdmxLenovoCommercialVantage {
+    <#
+    .SYNOPSIS
+        Extracts Commercial Vantage policy templates from the Enterprise ZIP.
+    .PARAMETER CurrentUri
+        Previously processed package URL, used to detect same-version rebuilds.
+    #>
+    param(
+        [string]$Version,
+        [string]$CurrentUri,
+        [string]$PolicyStore = $null,
+        [string[]]$Languages = $null
+    )
+
+    $ErrorActionPreference = 'Stop'
+    $Evergreen = Get-EvergreenAdmxLenovoCommercialVantage
+    if ($Version -and ([version]$Evergreen.Version -lt [version]$Version -or
+            ([version]$Evergreen.Version -eq [version]$Version -and $Evergreen.URI -eq $CurrentUri))) {
+        return $null
+    }
+
+    $ProductName = 'Lenovo Commercial Vantage'
+    $ProductFolder = ''; if ($UseProductFolders) { $ProductFolder = "\$($ProductName)" }
+    $OutFile = Join-Path (Join-Path $WorkingDirectory 'downloads') $Evergreen.URI.Split('/')[-1]
+    $TempFolder = Join-Path $env:TEMP ("EvergreenAdmx-LenovoCommercialVantage-{0}" -f [guid]::NewGuid().ToString('N'))
+    try {
+        Invoke-FileDownload -Uri $Evergreen.URI -OutFile $OutFile
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($OutFile)
+        try {
+            # Select known policy paths; leave application payloads in the ZIP.
+            foreach ($entry in $zip.Entries) {
+                $path = $entry.FullName.Replace('\', '/')
+                if ($path -eq 'Group Policy Settings/CommercialVantage.admx') {
+                    $destination = Join-Path $TempFolder 'CommercialVantage.admx'
+                } elseif ($path -match '^Group Policy Settings/([A-Za-z]{2}(?:-(?:[A-Za-z]{2}|\d{3}))?)/CommercialVantage\.adml$') {
+                    $destination = Join-Path (Join-Path $TempFolder $Matches[1]) 'CommercialVantage.adml'
+                } else {
+                    continue
+                }
+                $null = New-Item -Path (Split-Path -Parent $destination) -ItemType Directory -Force
+                [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $destination, $true)
+            }
+        } finally {
+            $zip.Dispose()
+        }
+        if (-not (Test-Path -LiteralPath (Join-Path $TempFolder 'CommercialVantage.admx')) -or
+            -not (Test-Path -LiteralPath (Join-Path $TempFolder 'en-US\CommercialVantage.adml'))) {
+            throw 'The Lenovo deployment ZIP must contain CommercialVantage.admx and en-US/CommercialVantage.adml.'
+        }
+        $TargetAdmx = "$($WorkingDirectory)\admx$($ProductFolder)"
+        Copy-Admx -SourceFolder $TempFolder -TargetFolder $TargetAdmx -PolicyStore $PolicyStore -ProductName $ProductName -Languages $Languages -Revision $(if ($StampAdmxRevision) { $Evergreen.Version })
+        return $Evergreen
+    } finally {
+        if (Test-Path -LiteralPath $TempFolder) {
+            Remove-Item -LiteralPath $TempFolder -Recurse -Force
+        }
     }
 }
 
@@ -6073,6 +6159,15 @@ if ($Include -notcontains 'WSL') {
     Write-Verbose "`nProcessing Admx files for WSL"
     $admx = Invoke-EvergreenAdmxWSL -Version $AdmxVersions.WSL.Version -PolicyStore $PolicyStore -Languages $Languages
     Update-AdmxVersion -AdmxVersions ([ref]$AdmxVersions) -ProductKey 'WSL' -AdmxData $admx
+}
+
+# Lenovo Commercial Vantage
+if ($Include -notcontains 'Lenovo Commercial Vantage') {
+    Write-Verbose "`nSkipping Lenovo Commercial Vantage"
+} else {
+    Write-Verbose "`nProcessing Admx files for Lenovo Commercial Vantage"
+    $admx = Invoke-EvergreenAdmxLenovoCommercialVantage -Version $AdmxVersions.LenovoCommercialVantage.Version -CurrentUri $AdmxVersions.LenovoCommercialVantage.URI -PolicyStore $PolicyStore -Languages $Languages
+    Update-AdmxVersion -AdmxVersions ([ref]$AdmxVersions) -ProductKey 'LenovoCommercialVantage' -AdmxData $admx
 }
 
 # Lenovo Dock Manager

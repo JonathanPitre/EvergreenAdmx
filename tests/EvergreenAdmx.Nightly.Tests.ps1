@@ -46,5 +46,9 @@ Describe 'Full product matrix' -Tag 'Nightly' {
         Test-Path -LiteralPath $versionsPath | Should -BeTrue
         $versions = Import-Clixml -LiteralPath $versionsPath
         @($versions.Keys).Count | Should -BeGreaterThan 20
+        Test-Path (Join-Path $admxRoot 'CommercialVantage.admx') | Should -BeTrue
+        Test-Path (Join-Path $enUs 'CommercialVantage.adml') | Should -BeTrue
+        $versions.LenovoCommercialVantage.Version | Should -Not -BeNullOrEmpty
+        $versions.LenovoCommercialVantage.URI | Should -Match '^https://download\.lenovo\.com/.+LenovoCommercialVantage_.+\.zip$'
     }
 }

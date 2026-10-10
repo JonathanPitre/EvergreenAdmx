@@ -23,6 +23,8 @@ CI runs unit tests under both PowerShell 7 and Windows PowerShell 5.1. Modules a
 
 Unit tests cover multi-product/default `-Include` resolution at the typed script call site, Windows 11 26H2 download selection, and Snagit asset selection, archive validation, language fallback, product folders, revision stamping, and cleanup.
 
+Lenovo Commercial Vantage unit tests use small ZIP fixtures and mocked metadata: no Enterprise ZIP download is needed. They cover dynamic discovery, aliases, exclusion from defaults, selective extraction, same-version rebuilds, language fallback, policy store copies, revision stamping, and failure cleanup. The weekly full matrix explicitly includes Lenovo and verifies its templates and version record.
+
 Release smoke includes real Edge and Snagit downloads plus scheduled-task registration. The weekly full matrix retains all catalog products except Custom Policy Store and Windows 10; it stops on processing errors and prints verbose diagnostics. Its workflow ensures WinGet and 7-Zip are available before downloads. These suites require Windows and are separate from the fast unit suite.
 
 ## Local runs

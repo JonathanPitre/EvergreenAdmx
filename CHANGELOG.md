@@ -9,6 +9,8 @@ and this project uses a `YYMM.patch` release versioning scheme.
 
 ### Added
 
+- Added opt-in Lenovo Commercial Vantage ADMX support: dynamically discovers the current Enterprise deployment ZIP, extracts policy files only, and detects same-version package rebuilds using the stored download URL ([#84](https://github.com/msfreaks/EvergreenAdmx/issues/84))
+- Added Lenovo Pester coverage for metadata discovery, aliases, explicit inclusion, selective extraction, language fallback, policy store copying, revision stamping, version/rebuild checks, and failure cleanup; nightly checks verify its templates and version record
 - Added community Snagit 2025 / 2026 ADMX from [systmworks/ADMX-Snagit](https://github.com/systmworks/ADMX-Snagit), including the `TechSmith Snagit` alias and language fallback ([#90](https://github.com/msfreaks/EvergreenAdmx/issues/90))
 - Added Windows 11 26H2 ADMX support using official Microsoft download ID `108847` ([#91](https://github.com/msfreaks/EvergreenAdmx/issues/91))
 - Added regression tests for typed `-Include` resolution, default products, 26H2 selection, and Snagit release/extraction behavior; CI now tests PowerShell 7 and Windows PowerShell 5.1

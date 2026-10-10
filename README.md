@@ -136,6 +136,14 @@ Prefer a locally installed OneDrive build:
 .\EvergreenAdmx.ps1 -Include 'Microsoft OneDrive' -PreferLocalOneDrive
 ```
 
+Download Lenovo Commercial Vantage policy templates:
+
+```powershell
+.\EvergreenAdmx.ps1 -Include 'Lenovo Commercial Vantage' -Languages en-US -UseProductFolders
+```
+
+Commercial Vantage requires explicit `-Include` (`LenovoCommercialVantage` and `CommercialVantage` are aliases). It discovers the current Enterprise deployment ZIP from Lenovo Support, downloads the full package (currently about 630 MiB), and extracts only `CommercialVantage.admx` and its language files. Subsequent runs skip unchanged packages; rebuilt ZIPs refresh even when the application version stays the same. If Lenovo's metadata is unavailable or changes format, the script reports an error instead of falling back to an old package.
+
 Weekly SYSTEM task for the Central Store (exits after registration):
 
 ```powershell
@@ -244,6 +252,7 @@ Shared defaults: `Microsoft Edge`, `Microsoft OneDrive`, `Microsoft 365 Apps`, `
 - [`Google Chrome`][ref-chrome]
 - [`GoTo`][ref-goto] (GoTo app / GoTo Connect)
 - [`HP Anyware`][ref-hp-anyware] (PCoIP ADMX from Standard Agent; requires 7-Zip)
+- [`Lenovo Commercial Vantage`][ref-lenovo-vantage] (policy templates from the Enterprise deployment ZIP; explicit `-Include`)
 - [`Lenovo Dock Manager`][ref-lenovo-dock] (policy_setup.exe Group Policy templates)
 - [`LibreOffice`][ref-libreoffice] (Collabora Office / LibreOffice GPO templates)
 - [`Microsoft 365 Apps`][ref-365-apps]
@@ -408,6 +417,7 @@ This project is licensed under the [MIT License](LICENSE).
 [ref-foxit]: https://kb.foxit.com/s/articles/360040241112-Available-GPO-templates
 [ref-goto]: https://goto-desktop.goto.com/GoToAppAdministrativeTemplates.zip
 [ref-hp-anyware]: https://anyware.hp.com/components/standard-agent-for-windows/26.05/documentation/administrators-guide/reference/install-gpo-template-files
+[ref-lenovo-vantage]: https://pcsupport.lenovo.com/us/en/solutions/hf003321
 [ref-lenovo-dock]: https://download.lenovo.com/consumer/options/policy_setup.exe
 [ref-libreoffice]: https://github.com/CollaboraOnline/ADMX
 [ref-chrome]: https://chromeenterprise.google/policies/
