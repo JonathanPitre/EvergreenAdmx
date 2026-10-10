@@ -78,7 +78,19 @@ Describe 'New Windows package validation' {
 }
 
 Describe 'Reviewed release catalog updates' {
-    BeforeEach { $script:Catalog = Get-EvergreenAdmxReleaseCatalog }
+    BeforeEach {
+        # Synthetic baseline stays fixed while the runtime's reviewed releases advance.
+        $script:Catalog = @{
+            ABBYYMajor = 16
+            FoxitMajor = 2026
+            Windows = @(
+                @{ Version = '10'; Feature = '22H2'; DownloadId = '104677'; Default = $true }
+                @{ Version = '11'; Feature = '25H2'; DownloadId = '108542'; Default = $false }
+                @{ Version = '11'; Feature = '26H2'; DownloadId = '108847'; Default = $true }
+                @{ Version = '2025'; Feature = ''; DownloadId = '108430'; Default = $true }
+            )
+        }
+    }
 
     It 'keeps exactly one default per Windows family' {
         foreach ($version in ($script:Catalog.Windows.Version | Select-Object -Unique)) {
