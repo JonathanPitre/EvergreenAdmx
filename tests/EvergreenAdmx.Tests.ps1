@@ -354,7 +354,7 @@ Describe 'Lenovo Commercial Vantage template processing' {
         $script:LenovoZip = Join-Path $TestDrive 'Lenovo.zip'
         if (Test-Path -LiteralPath $script:LenovoZip) { Remove-Item -LiteralPath $script:LenovoZip -Force }
         $script:LenovoUri = 'https://download.lenovo.com/pccbbs/thinkvantage_en/metroapps/Vantage/LenovoCommercialVantage_20.2606.24.0.20260917014203.zip'
-        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        Add-Type -AssemblyName System.IO.Compression,System.IO.Compression.FileSystem
         $zip = [System.IO.Compression.ZipFile]::Open($script:LenovoZip, [System.IO.Compression.ZipArchiveMode]::Create)
         try {
             # Include Windows separators, unrelated installer payloads, and an unsafe path.

@@ -2711,7 +2711,7 @@ function Invoke-EvergreenAdmxLenovoCommercialVantage {
     $TempFolder = Join-Path $env:TEMP ("EvergreenAdmx-LenovoCommercialVantage-{0}" -f [guid]::NewGuid().ToString('N'))
     try {
         Invoke-FileDownload -Uri $Evergreen.URI -OutFile $OutFile
-        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        Add-Type -AssemblyName System.IO.Compression,System.IO.Compression.FileSystem
         $zip = [System.IO.Compression.ZipFile]::OpenRead($OutFile)
         try {
             # Select known policy paths; leave application payloads in the ZIP.
